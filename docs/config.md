@@ -6,4 +6,6 @@ la "D" apre il menu database
 la "G" apre il menu partite
 la "M" apre il menu mosse
 
+la "Q" chiude il programma
 
+la "E" apre il menu motore
