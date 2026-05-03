@@ -46,6 +46,7 @@ impl FolderDatabase {
         self.games.is_empty()
     }
 
+    #[allow(dead_code)]
     pub fn game_at(&self, idx: usize) -> Option<&GameRef> {
         self.games.get(idx)
     }

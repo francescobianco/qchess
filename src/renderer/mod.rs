@@ -4,6 +4,7 @@ use shakmaty::{Chess, Color, File, Position, Rank, Role, Square};
 
 pub struct RenderOptions {
     pub flipped: bool,
+    #[allow(dead_code)]
     pub last_move: Option<shakmaty::Move>,
 }
 

@@ -24,6 +24,7 @@ pub struct GameRef {
 }
 
 pub struct LoadedGame {
+    #[allow(dead_code)]
     pub game_ref: GameRef,
     /// Positions: initial position + position after each move.
     /// `positions[i]` is the board state BEFORE move `i`.
