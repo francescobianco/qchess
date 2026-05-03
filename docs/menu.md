@@ -2,7 +2,7 @@
 il menu conteite le seguenti voci
 
 
-Database     Partite     Mosse     Opzioni     ?   
+Database     Partite     Mosse      Motore       Opzioni     ?   
 
 
 
