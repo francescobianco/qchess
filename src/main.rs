@@ -1,5 +1,6 @@
 mod app;
 mod assets;
+mod config;
 mod db;
 mod event;
 mod kitty;
@@ -119,6 +120,7 @@ fn main() -> Result<()> {
                     flipped: false,
                     hl_from,
                     hl_to,
+                    selected_square: Some(app.selected_square),
                 },
             );
 

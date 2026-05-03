@@ -12,6 +12,8 @@ pub struct RenderOptions {
     pub hl_from: Option<Square>,
     /// Square to highlight as "to" (last move destination).
     pub hl_to: Option<Square>,
+    /// Current board cursor square.
+    pub selected_square: Option<Square>,
 }
 
 impl Default for RenderOptions {
@@ -20,12 +22,15 @@ impl Default for RenderOptions {
             flipped: false,
             hl_from: None,
             hl_to: None,
+            selected_square: None,
         }
     }
 }
 
 /// Highlight overlay colour (semi-transparent yellow).
 const HL: Rgba<u8> = Rgba([255, 220, 0, 100]);
+const CURSOR: Rgba<u8> = Rgba([0, 0, 255, 255]);
+const CURSOR_W: u32 = 2;
 
 pub struct PngBoardRenderer<'a> {
     pub style: &'a dyn BoardStyle,
@@ -75,6 +80,11 @@ impl PngBoardRenderer<'_> {
                 if let Some(piece) = pos.board().piece_at(sq) {
                     let piece_img = self.pieces.piece(piece.color, piece.role);
                     blit_alpha(&mut canvas, piece_img, pixel_col, pixel_row);
+                }
+
+                // ── 4. Draw current-square cursor above piece/background ──────
+                if opts.selected_square == Some(sq) {
+                    stroke_rect(&mut canvas, pixel_col, pixel_row, sq_px, CURSOR_W, CURSOR);
                 }
             }
         }
@@ -147,6 +157,23 @@ fn alpha_fill(dst: &mut RgbaImage, dx: u32, dy: u32, sq_px: u32, col: Rgba<u8>) 
             dp[1] = (col[1] as f32 * a + dp[1] as f32 * inv) as u8;
             dp[2] = (col[2] as f32 * a + dp[2] as f32 * inv) as u8;
             dp[3] = 255;
+        }
+    }
+}
+
+fn stroke_rect(dst: &mut RgbaImage, dx: u32, dy: u32, size: u32, width: u32, col: Rgba<u8>) {
+    let (dw, dh) = dst.dimensions();
+    for y in 0..size {
+        if dy + y >= dh {
+            break;
+        }
+        for x in 0..size {
+            if dx + x >= dw {
+                break;
+            }
+            if x < width || y < width || x >= size - width || y >= size - width {
+                *dst.get_pixel_mut(dx + x, dy + y) = col;
+            }
         }
     }
 }

@@ -4,6 +4,7 @@ use crate::{db::FolderDatabase, pgn::LoadedGame};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::ListState;
+use shakmaty::Square;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppScreen {
@@ -17,6 +18,7 @@ pub struct App {
     pub picker_state: ListState,
     pub current_game: Option<LoadedGame>,
     pub current_ply: usize,
+    pub selected_square: Square,
     pub running: bool,
     pub engine_lines: Vec<String>, // placeholder for engine output
 }
@@ -34,6 +36,7 @@ impl App {
             picker_state,
             current_game: None,
             current_ply: 0,
+            selected_square: Square::E2,
             running: true,
             engine_lines: vec!["No engine loaded. [Future: UCI integration]".into()],
         })
@@ -58,8 +61,12 @@ impl App {
             KeyCode::Char('g') | KeyCode::Char('G') => {
                 self.screen = AppScreen::GamePicker;
             }
-            KeyCode::Right | KeyCode::Char('l') => self.next_move(),
-            KeyCode::Left | KeyCode::Char('h') => self.prev_move(),
+            KeyCode::Right => self.move_square_cursor(1, 0),
+            KeyCode::Left => self.move_square_cursor(-1, 0),
+            KeyCode::Up => self.move_square_cursor(0, 1),
+            KeyCode::Down => self.move_square_cursor(0, -1),
+            KeyCode::Char('l') => self.next_move(),
+            KeyCode::Char('h') => self.prev_move(),
             KeyCode::Home | KeyCode::Char('s') => self.go_start(),
             KeyCode::End | KeyCode::Char('e') => self.go_end(),
             _ => {}
@@ -130,6 +137,15 @@ impl App {
     fn go_end(&mut self) {
         if let Some(game) = &self.current_game {
             self.current_ply = game.positions.len().saturating_sub(1);
+        }
+    }
+
+    fn move_square_cursor(&mut self, df: i32, dr: i32) {
+        let file = self.selected_square.file().offset(df);
+        let rank = self.selected_square.rank().offset(dr);
+
+        if let (Some(file), Some(rank)) = (file, rank) {
+            self.selected_square = Square::from_coords(file, rank);
         }
     }
 }

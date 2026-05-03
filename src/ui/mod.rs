@@ -13,33 +13,27 @@ use ratatui::{
 use crate::app::{App, AppScreen};
 use crate::renderer::{BOARD_COLS, BOARD_ROWS};
 
-// ── QBasic-inspired palette ───────────────────────────────────────────────────
-pub const Q_BG: Color = Color::Blue; // classic QBasic dark blue
-pub const Q_TEXT: Color = Color::White;
+// ── Current application palette ───────────────────────────────────────────────
+pub const Q_BG: Color = Color::White;
+pub const Q_TEXT: Color = Color::Black;
 pub const Q_MENU_BG: Color = Color::Black;
 pub const Q_MENU_FG: Color = Color::White;
-pub const Q_MENU_KEY: Color = Color::Yellow; // menu mnemonic labels
-pub const Q_BORDER: Color = Color::Cyan;
-pub const Q_SEL_BG: Color = Color::Cyan;
-pub const Q_SEL_FG: Color = Color::Black;
-pub const Q_STATUS_BG: Color = Color::DarkGray;
+pub const Q_BORDER: Color = Color::Black;
+pub const Q_SEL_BG: Color = Color::Blue;
+pub const Q_SEL_FG: Color = Color::White;
+pub const Q_STATUS_BG: Color = Color::Black;
 pub const Q_STATUS_FG: Color = Color::White;
 pub const Q_DIM: Color = Color::DarkGray;
 
 fn menu_bar() -> Paragraph<'static> {
     let spans = vec![
         Span::styled(" Database", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=D", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
         Span::styled("  Partite", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=G", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
         Span::styled("  Mosse", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=M", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
         Span::styled("  Motore", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=E", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
         Span::styled("  Opzioni", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
         Span::styled("  ?", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
         Span::styled("  Esci", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=Q", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
     ];
     Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_MENU_BG))
 }
@@ -57,7 +51,7 @@ fn status_bar(app: &App) -> Paragraph<'_> {
     };
 
     let hint = match app.screen {
-        AppScreen::Main => " │ D=database  G=partite  M=mosse  E=motore  Q=esci",
+        AppScreen::Main => " │ ↑↓←→ casella  G=partite  D/M/E=menu  Q=esci",
         AppScreen::GamePicker => " │ ↑↓ navigate  Enter=open  Esc/G=close",
     };
 
@@ -157,9 +151,19 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
     move_list::render_move_list(f, moves_inner, app);
 
     // ── Engine panel ──────────────────────────────────────────────────────────
-    let engine_block = qblock("Engine Analysis");
-    let engine_inner = engine_block.inner(engine_area);
-    f.render_widget(engine_block, engine_area);
+    let engine_rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(0)])
+        .split(engine_area);
+    f.render_widget(
+        Paragraph::new(" Engine Analysis ").style(
+            Style::default()
+                .fg(Q_MENU_FG)
+                .bg(Q_MENU_BG)
+                .add_modifier(Modifier::BOLD),
+        ),
+        engine_rows[0],
+    );
 
     let engine_text: Vec<Line> = app
         .engine_lines
@@ -173,7 +177,7 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
         .collect();
     f.render_widget(
         Paragraph::new(engine_text).style(Style::default().bg(Q_BG)),
-        engine_inner,
+        engine_rows[1],
     );
 
     // ── Game picker overlay ───────────────────────────────────────────────────

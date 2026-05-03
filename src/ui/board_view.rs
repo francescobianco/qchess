@@ -17,22 +17,29 @@ pub fn render_board(f: &mut Frame, area: Rect, app: &App, _use_bitmap_overlay: b
     match &app.current_game {
         Some(game) => {
             let pos = &game.positions[app.current_ply];
-            render_unicode(f, area, pos, last_move);
+            render_unicode(f, area, pos, last_move, Some(app.selected_square));
         }
         None => {
             let start = Chess::default();
-            render_unicode(f, area, &start, None);
+            render_unicode(f, area, &start, None, Some(app.selected_square));
         }
     }
 }
 
-fn render_unicode(f: &mut Frame, area: Rect, pos: &Chess, last_move: Option<shakmaty::Move>) {
+fn render_unicode(
+    f: &mut Frame,
+    area: Rect,
+    pos: &Chess,
+    last_move: Option<shakmaty::Move>,
+    selected_square: Option<shakmaty::Square>,
+) {
     f.render_widget(
         BoardWidget {
             pos,
             options: UniRO {
                 flipped: false,
                 last_move,
+                selected_square,
             },
         },
         area,

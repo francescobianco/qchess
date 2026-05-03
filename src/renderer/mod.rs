@@ -17,11 +17,15 @@ const DARK_PIECE_FG: Color = Color::Black;
 const HL_BG: Color = Color::Yellow;
 const HL_HATCH: Color = Color::DarkGray;
 const HL_PIECE_FG: Color = Color::Black;
-const SURROUND: Color = Color::Blue;
+const CURSOR_BG: Color = Color::Blue;
+const CURSOR_FG: Color = Color::White;
+const SURROUND_BG: Color = Color::Black;
+const SURROUND_FG: Color = Color::White;
 
 pub struct RenderOptions {
     pub flipped: bool,
     pub last_move: Option<shakmaty::Move>,
+    pub selected_square: Option<Square>,
 }
 
 impl Default for RenderOptions {
@@ -29,6 +33,7 @@ impl Default for RenderOptions {
         RenderOptions {
             flipped: false,
             last_move: None,
+            selected_square: None,
         }
     }
 }
@@ -114,7 +119,7 @@ impl Widget for BoardWidget<'_> {
                     } else {
                         " "
                     };
-                    set_cell(buf, x, y, sym, Color::White, SURROUND);
+                    set_cell(buf, x, y, sym, SURROUND_FG, SURROUND_BG);
                 }
             }
 
@@ -125,6 +130,7 @@ impl Widget for BoardWidget<'_> {
                 let piece = board.piece_at(sq);
 
                 let is_hl = Some(sq) == hl_from || Some(sq) == hl_to;
+                let is_cursor = self.options.selected_square == Some(sq);
                 let is_dark = sq_is_dark(file_idx, rank_idx);
 
                 let x0 = area.x + LABEL_W + fi as u16 * SQ_W;
@@ -136,7 +142,9 @@ impl Widget for BoardWidget<'_> {
                         if x >= area.right() {
                             continue;
                         }
-                        let (sym, fg, bg): (&str, _, _) = if is_hl {
+                        let (sym, fg, bg): (&str, _, _) = if is_cursor {
+                            ("\u{2591}", CURSOR_FG, CURSOR_BG)
+                        } else if is_hl {
                             ("\u{2591}", HL_HATCH, HL_BG)
                         } else if is_dark {
                             ("\u{2591}", DARK_HATCH, DARK_BG)
@@ -158,7 +166,9 @@ impl Widget for BoardWidget<'_> {
                         if dx == 1 {
                             let (sym, fg, bg): (&str, _, _) = match piece {
                                 Some(p) => {
-                                    let (fg, bg) = if is_hl {
+                                    let (fg, bg) = if is_cursor {
+                                        (CURSOR_FG, CURSOR_BG)
+                                    } else if is_hl {
                                         (HL_PIECE_FG, HL_BG)
                                     } else if is_dark {
                                         (DARK_PIECE_FG, DARK_BG)
@@ -168,7 +178,9 @@ impl Widget for BoardWidget<'_> {
                                     (piece_str(p.color, p.role), fg, bg)
                                 }
                                 None => {
-                                    if is_hl {
+                                    if is_cursor {
+                                        ("\u{2591}", CURSOR_FG, CURSOR_BG)
+                                    } else if is_hl {
                                         ("\u{2591}", HL_HATCH, HL_BG)
                                     } else if is_dark {
                                         ("\u{2591}", DARK_HATCH, DARK_BG)
@@ -179,7 +191,9 @@ impl Widget for BoardWidget<'_> {
                             };
                             set_cell(buf, x, sq_bot, sym, fg, bg);
                         } else {
-                            let (sym, fg, bg): (&str, _, _) = if is_hl {
+                            let (sym, fg, bg): (&str, _, _) = if is_cursor {
+                                ("\u{2591}", CURSOR_FG, CURSOR_BG)
+                            } else if is_hl {
                                 ("\u{2591}", HL_HATCH, HL_BG)
                             } else if is_dark {
                                 ("\u{2591}", DARK_HATCH, DARK_BG)
@@ -199,7 +213,7 @@ impl Widget for BoardWidget<'_> {
             for lx in 0..LABEL_W {
                 let x = area.x + lx;
                 if x < area.right() {
-                    set_cell(buf, x, label_y, " ", Color::White, SURROUND);
+                    set_cell(buf, x, label_y, " ", SURROUND_FG, SURROUND_BG);
                 }
             }
 
@@ -219,9 +233,9 @@ impl Widget for BoardWidget<'_> {
                         continue;
                     }
                     if dx == 1 {
-                        set_cell(buf, x, label_y, fc_str, Color::White, SURROUND);
+                        set_cell(buf, x, label_y, fc_str, SURROUND_FG, SURROUND_BG);
                     } else {
-                        set_cell(buf, x, label_y, " ", SURROUND, SURROUND);
+                        set_cell(buf, x, label_y, " ", SURROUND_BG, SURROUND_BG);
                     }
                 }
             }

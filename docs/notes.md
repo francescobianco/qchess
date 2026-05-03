@@ -12,13 +12,15 @@ Rust TUI chess database browser. Any folder with .pgn files is a valid database.
 
 **Board fallback behavior**: la scacchiera Unicode viene sempre renderizzata sotto al PNG. Se il terminale ignora Kitty/SIXEL o il bitmap fallisce, il pannello non rimane vuoto.
 
+**Board cursor**: le frecce muovono `App::selected_square` sulla scacchiera. Nel renderer PNG la casa corrente ha un bordo blu pieno da 2px disegnato sopra casa e pezzo; nel fallback Unicode la casa corrente usa sfondo blu.
+
 **Graphics terminal handoff**: in `--graphics auto`, se il terminale corrente non supporta bitmap e l'app trova `kitty` o `wezterm` nel `PATH`, apre una nuova finestra separata e rilancia qchess con `--graphics kitty`. La finestra lanciata imposta un font size esplicito `14.0`. `QCHESS_GRAPHICS_CHILD=1` evita rilanci ricorsivi. Se non trova un terminale grafico, resta nel terminale corrente con fallback Unicode.
 
 **Fritz assets**: tiles estratti da `fritz_3.png` con origine interna corretta `board_x=16`, `board_y=40`, `sq=40px`. Le coordinate `14,38` includono 2px di bordo e tagliano/spostano le figurine. Gli sprite non devono contenere pixel della casa: l'alpha va ricostruita usando sorgenti su casa chiara quando possibile, filtrando il tratteggio delle case scure e includendo solo le aree bianche chiuse dal contorno nero. `BoardStyle` + `PieceSet` traits per temi personalizzabili. Fritz tile inclusi con `include_bytes!` in `assets/fritz/`.
 
-**Theme**: QBasic-inspired — Color::Blue background, black menu bar with yellow mnemonic labels, cyan borders, cyan selection highlight, dark grey status bar.
+**Theme**: current style from `docs/style.md` — general white background, black menu bar with white text, black panel borders, blue active square cursor, black status bar. The engine analysis area uses a horizontal black title bar, not a bordered box.
 
 **State**: `AppScreen::Main` (normal) | `AppScreen::GamePicker` (floating overlay). Board always visible showing starting position when no game loaded.
 
-**Why:** User wants retro feel inspired by Fritz/KnightStalker DOS chess software and QBasic IDE aesthetics.
-**How to apply:** Keep these visual choices when adding new UI elements. New panels follow the same qblock() / Q_* color palette.
+**Why:** User wants retro chess visuals inspired by Fritz/KnightStalker assets, but the application chrome is no longer QBasic blue.
+**How to apply:** Keep new UI elements on white background with black structural chrome. The menu stays black; engine analysis uses a title separator bar.
