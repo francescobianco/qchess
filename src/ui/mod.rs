@@ -14,15 +14,15 @@ use crate::app::{App, AppScreen, EngineEditorButton, EngineEditorFocus};
 use crate::renderer::{BOARD_COLS, BOARD_ROWS};
 
 // ── Current application palette ───────────────────────────────────────────────
-pub const Q_BG: Color = Color::White;
-pub const Q_TEXT: Color = Color::Black;
+pub const Q_BG: Color = Color::Black;
+pub const Q_TEXT: Color = Color::White;
 pub const Q_MENU_BG: Color = Color::Black;
 pub const Q_MENU_FG: Color = Color::White;
 pub const Q_BORDER: Color = Color::Black;
 pub const Q_SEL_BG: Color = Color::Blue;
 pub const Q_SEL_FG: Color = Color::White;
-pub const Q_STATUS_BG: Color = Color::Black;
-pub const Q_STATUS_FG: Color = Color::White;
+pub const Q_STATUS_BG: Color = Color::Gray;
+pub const Q_STATUS_FG: Color = Color::DarkGray;
 pub const Q_DIM: Color = Color::DarkGray;
 
 fn menu_bar() -> Paragraph<'static> {

@@ -17,7 +17,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::{Parser, ValueEnum};
 use event::{Event, EventLoop};
 use ratatui::layout::Rect;
@@ -32,6 +32,9 @@ use crate::{
     ui::board_view::last_move_for,
 };
 
+const BOARD_PNG_OFFSET_X: u16 = 4;
+const BOARD_PNG_OFFSET_Y: u16 = 8;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "qchess",
@@ -42,11 +45,7 @@ struct Cli {
     #[arg(default_value = ".")]
     path: PathBuf,
 
-    /// Force Unicode board rendering even if Kitty graphics are available
-    #[arg(long)]
-    unicode: bool,
-
-    /// Board graphics backend: auto, kitty, sixel, unicode
+    /// Board graphics backend: auto, kitty, sixel
     #[arg(long, value_enum, default_value_t = GraphicsMode::Auto)]
     graphics: GraphicsMode,
 }
@@ -56,14 +55,12 @@ enum GraphicsMode {
     Auto,
     Kitty,
     Sixel,
-    Unicode,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum GraphicsBackend {
     Kitty,
     Sixel,
-    Unicode,
 }
 
 fn main() -> Result<()> {
@@ -72,13 +69,20 @@ fn main() -> Result<()> {
     init_panic_hook();
 
     let graphics = select_graphics_backend(&cli);
-    if graphics == GraphicsBackend::Unicode && reopen_in_graphics_terminal(&cli)? {
+    let Some(graphics) = graphics else {
+        if reopen_in_graphics_terminal(&cli)? {
+            return Ok(());
+        }
+        bail!("qchess requires kitty, wezterm, or a SIXEL-capable terminal; no Unicode board fallback is available");
+    };
+    if matches!(cli.graphics, GraphicsMode::Auto)
+        && graphics == GraphicsBackend::Sixel
+        && reopen_in_graphics_terminal(&cli)?
+    {
         return Ok(());
     }
 
     let mut app = App::new(&cli.path)?;
-
-    let use_png_board = graphics != GraphicsBackend::Unicode;
 
     // Load Fritz assets (embedded in the binary).
     let board_style = FritzBoardStyle::new();
@@ -98,15 +102,15 @@ fn main() -> Result<()> {
     while app.running {
         // ── Draw TUI ─────────────────────────────────────────────────────────
         terminal.draw(|f| {
-            board_area = ui::draw(f, &app, use_png_board);
+            board_area = ui::draw(f, &app, true);
         })?;
 
         // ── Overlay bitmap board PNG ─────────────────────────────────────────
-        if use_png_board && !board_area.is_empty() && app.screen != AppScreen::Main {
+        if !board_area.is_empty() && app.screen != AppScreen::Main {
             if graphics == GraphicsBackend::Kitty {
                 let _ = kitty::clear_at(board_area.x + LABEL_W, board_area.y);
             }
-        } else if use_png_board && !board_area.is_empty() {
+        } else if !board_area.is_empty() {
             let pos: &Chess = app
                 .current_game
                 .as_ref()
@@ -136,11 +140,12 @@ fn main() -> Result<()> {
                     board_area.y,
                     SQ_W * 8,
                     SQ_H * 8,
+                    BOARD_PNG_OFFSET_X,
+                    BOARD_PNG_OFFSET_Y,
                 ),
                 GraphicsBackend::Sixel => {
                     sixel::display(&png, board_area.x + LABEL_W, board_area.y)
                 }
-                GraphicsBackend::Unicode => Ok(()),
             };
         }
 
@@ -155,39 +160,28 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn select_graphics_backend(cli: &Cli) -> GraphicsBackend {
-    if cli.unicode {
-        return GraphicsBackend::Unicode;
-    }
-
+fn select_graphics_backend(cli: &Cli) -> Option<GraphicsBackend> {
     match cli.graphics {
         GraphicsMode::Auto => {
             if supports_kitty() {
-                GraphicsBackend::Kitty
+                Some(GraphicsBackend::Kitty)
             } else if supports_sixel() {
-                GraphicsBackend::Sixel
+                Some(GraphicsBackend::Sixel)
             } else {
-                GraphicsBackend::Unicode
+                None
             }
         }
-        GraphicsMode::Kitty => GraphicsBackend::Kitty,
-        GraphicsMode::Sixel => GraphicsBackend::Sixel,
-        GraphicsMode::Unicode => GraphicsBackend::Unicode,
+        GraphicsMode::Kitty => Some(GraphicsBackend::Kitty),
+        GraphicsMode::Sixel => Some(GraphicsBackend::Sixel),
     }
 }
 
 fn reopen_in_graphics_terminal(cli: &Cli) -> Result<bool> {
-    if cli.unicode
-        || cli.graphics != GraphicsMode::Auto
-        || std::env::var_os("QCHESS_GRAPHICS_CHILD").is_some()
-    {
+    if cli.graphics != GraphicsMode::Auto || std::env::var_os("QCHESS_GRAPHICS_CHILD").is_some() {
         return Ok(false);
     }
 
     let Some(launcher) = find_graphics_terminal() else {
-        eprintln!(
-            "qchess: bitmap board unavailable in this terminal; install kitty or wezterm, or run with --unicode"
-        );
         return Ok(false);
     };
 

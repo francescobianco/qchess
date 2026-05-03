@@ -2,7 +2,7 @@
 //!
 //! Writes an APC escape sequence directly to stdout, overlaid on the ratatui
 //! TUI.  The image covers exactly the terminal cells occupied by the board
-//! panel.
+//! panel. Optional pixel offsets are Kitty sub-cell placement offsets.
 //!
 //! Reference: https://sw.kovidgoyal.net/kitty/graphics-protocol/
 
@@ -20,7 +20,15 @@ const CHUNK: usize = 4096;
 ///
 /// Returns `Ok(())` on success.  If the terminal does not support Kitty
 /// graphics, the APC sequence is simply ignored.
-pub fn display(png_data: &[u8], col: u16, row: u16, cols: u16, rows: u16) -> io::Result<()> {
+pub fn display(
+    png_data: &[u8],
+    col: u16,
+    row: u16,
+    cols: u16,
+    rows: u16,
+    px_offset_x: u16,
+    px_offset_y: u16,
+) -> io::Result<()> {
     let mut out = io::stdout().lock();
 
     // Position cursor at the top-left of the board area.
@@ -43,11 +51,12 @@ pub fn display(png_data: &[u8], col: u16, row: u16, cols: u16, rows: u16) -> io:
             // f=100 → format: PNG
             // t=d  → transmission: direct (inline)
             // c,r  → display size in terminal columns/rows
+            // X,Y  → pixel offset inside the top-left terminal cell
             // q=2  → suppress all OK/error responses
             // m    → more chunks? 1=yes, 0=final
             write!(
                 out,
-                "\x1b_Ga=T,f=100,t=d,c={cols},r={rows},q=2,m={m};{data}\x1b\\",
+                "\x1b_Ga=T,f=100,t=d,c={cols},r={rows},X={px_offset_x},Y={px_offset_y},q=2,m={m};{data}\x1b\\",
             )?;
         } else {
             write!(out, "\x1b_Gm={m};{data}\x1b\\")?;

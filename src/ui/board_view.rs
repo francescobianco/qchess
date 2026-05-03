@@ -1,49 +1,18 @@
 //! Board area widget.
 //!
-//! The Unicode board is always rendered first. Bitmap backends then overlay
-//! the PNG after `terminal.draw`, so unsupported image protocols still leave a
-//! visible board instead of an empty panel.
+//! The board itself is bitmap-only. This widget only clears the board area in
+//! the TUI; the PNG is overlaid by the caller after `terminal.draw`.
 
-use ratatui::{layout::Rect, Frame};
-use shakmaty::Chess;
+use ratatui::{layout::Rect, style::Style, widgets::Paragraph, Frame};
 
 use crate::app::App;
-use crate::renderer::{BoardWidget, RenderOptions as UniRO};
+use crate::ui::Q_BG;
 
-/// Render the board panel. `use_bitmap_overlay` is accepted so callers can keep
-/// one code path, but the fallback board is intentionally always visible.
+/// Clear the board panel. The bitmap renderer is responsible for drawing the
+/// actual board; there is no Unicode fallback.
 pub fn render_board(f: &mut Frame, area: Rect, app: &App, _use_bitmap_overlay: bool) {
-    let last_move = last_move_for(app);
-    match &app.current_game {
-        Some(game) => {
-            let pos = &game.positions[app.current_ply];
-            render_unicode(f, area, pos, last_move, Some(app.selected_square));
-        }
-        None => {
-            let start = Chess::default();
-            render_unicode(f, area, &start, None, Some(app.selected_square));
-        }
-    }
-}
-
-fn render_unicode(
-    f: &mut Frame,
-    area: Rect,
-    pos: &Chess,
-    last_move: Option<shakmaty::Move>,
-    selected_square: Option<shakmaty::Square>,
-) {
-    f.render_widget(
-        BoardWidget {
-            pos,
-            options: UniRO {
-                flipped: false,
-                last_move,
-                selected_square,
-            },
-        },
-        area,
-    );
+    let _ = app;
+    f.render_widget(Paragraph::new("").style(Style::default().bg(Q_BG)), area);
 }
 
 pub fn last_move_for(app: &App) -> Option<shakmaty::Move> {

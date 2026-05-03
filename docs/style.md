@@ -4,10 +4,10 @@ The application chrome is no longer QBasic-inspired.
 
 ## Palette
 
-- General background: white.
-- Main text: black.
+- General background: black.
+- Main text: white.
 - Menu bar: black background with white text.
-- Status bar: black background with white text.
+- Status bar: gray background with dark gray text.
 - Active square cursor: blue.
 
 ## Board And Move List
