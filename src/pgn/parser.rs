@@ -1,8 +1,8 @@
 use std::{fs::File, path::PathBuf};
 
 use anyhow::{Context, Result};
-use pgn_reader::{BufferedReader, RawTag, Skip, Visitor};
-use shakmaty::{san::SanPlus, Chess, Position};
+use pgn_reader::{BufferedReader, RawTag, SanPlus, Skip, Visitor};
+use shakmaty::{Chess, Position};
 
 // ─── Data structures ─────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ impl Visitor for FullGameLoader {
             return;
         }
         match san_plus.san.to_move(&self.current_pos) {
-            Ok(m) => match self.current_pos.clone().play(&m) {
+            Ok(m) => match self.current_pos.clone().play(m) {
                 Ok(new_pos) => {
                     self.sans.push(san_plus);
                     self.current_pos = new_pos.clone();
@@ -190,7 +190,7 @@ pub fn load_game(game_ref: &GameRef) -> Result<LoadedGame> {
     // Skip games before the target index.
     for i in 0..game_ref.game_number {
         let skipped = reader
-            .skip_game()
+            .skip_game::<MetaVisitor>()
             .with_context(|| format!("Error skipping game #{}", i))?;
         if !skipped {
             anyhow::bail!(
