@@ -20,13 +20,7 @@ const CHUNK: usize = 4096;
 ///
 /// Returns `Ok(())` on success.  If the terminal does not support Kitty
 /// graphics, the APC sequence is simply ignored.
-pub fn display(
-    png_data: &[u8],
-    col: u16,
-    row: u16,
-    cols: u16,
-    rows: u16,
-) -> io::Result<()> {
+pub fn display(png_data: &[u8], col: u16, row: u16, cols: u16, rows: u16) -> io::Result<()> {
     let mut out = io::stdout().lock();
 
     // Position cursor at the top-left of the board area.
@@ -41,8 +35,7 @@ pub fn display(
     for (i, chunk) in bytes.chunks(CHUNK).enumerate() {
         let is_last = i + 1 == total_chunks;
         let m = if is_last { 0u8 } else { 1u8 };
-        let data = std::str::from_utf8(chunk)
-            .expect("base64 is always ASCII");
+        let data = std::str::from_utf8(chunk).expect("base64 is always ASCII");
 
         if i == 0 {
             // First chunk: include all parameters.

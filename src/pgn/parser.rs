@@ -146,11 +146,7 @@ impl Visitor for FullGameLoader {
         if self.error {
             None
         } else {
-            Some((
-                self.meta.clone(),
-                self.positions.clone(),
-                self.sans.clone(),
-            ))
+            Some((self.meta.clone(), self.positions.clone(), self.sans.clone()))
         }
     }
 }
@@ -159,8 +155,7 @@ impl Visitor for FullGameLoader {
 
 /// Scan a PGN file and return one `GameRef` per game found.
 pub fn scan_games_in_file(path: &std::path::Path) -> Result<Vec<GameRef>> {
-    let file = File::open(path)
-        .with_context(|| format!("Failed to open {}", path.display()))?;
+    let file = File::open(path).with_context(|| format!("Failed to open {}", path.display()))?;
     let mut reader = BufferedReader::new(file);
     let mut visitor = MetaVisitor::default();
     let mut refs = Vec::new();

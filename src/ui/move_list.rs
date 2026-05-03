@@ -71,9 +71,7 @@ pub fn render_move_list(f: &mut Frame, area: Rect, app: &App) {
 
     // Scroll to keep current move visible
     let current_line = app.current_ply.saturating_sub(1) / 2;
-    let scroll = current_line
-        .saturating_sub((area.height as usize) / 2)
-        as u16;
+    let scroll = current_line.saturating_sub((area.height as usize) / 2) as u16;
 
     let para = Paragraph::new(lines)
         .style(Style::default().bg(Q_BG))

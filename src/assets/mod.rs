@@ -44,31 +44,39 @@ pub struct FritzBoardStyle {
 impl FritzBoardStyle {
     pub fn new() -> Self {
         let light = decode(include_bytes!("../../assets/fritz/board/light.png"));
-        let dark  = decode(include_bytes!("../../assets/fritz/board/dark.png"));
+        let dark = decode(include_bytes!("../../assets/fritz/board/dark.png"));
         let sq = light.width();
         FritzBoardStyle { light, dark, sq }
     }
 }
 
 impl Default for FritzBoardStyle {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BoardStyle for FritzBoardStyle {
-    fn square_size(&self) -> u32 { self.sq }
-    fn light_square(&self) -> &RgbaImage { &self.light }
-    fn dark_square(&self)  -> &RgbaImage { &self.dark }
+    fn square_size(&self) -> u32 {
+        self.sq
+    }
+    fn light_square(&self) -> &RgbaImage {
+        &self.light
+    }
+    fn dark_square(&self) -> &RgbaImage {
+        &self.dark
+    }
 }
 
 // Role → index (King=0, Queen=1, Rook=2, Bishop=3, Knight=4, Pawn=5)
 fn role_idx(role: Role) -> usize {
     match role {
-        Role::King   => 0,
-        Role::Queen  => 1,
-        Role::Rook   => 2,
+        Role::King => 0,
+        Role::Queen => 1,
+        Role::Rook => 2,
         Role::Bishop => 3,
         Role::Knight => 4,
-        Role::Pawn   => 5,
+        Role::Pawn => 5,
     }
 }
 
@@ -101,7 +109,9 @@ impl FritzPieceSet {
 }
 
 impl Default for FritzPieceSet {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PieceSet for FritzPieceSet {

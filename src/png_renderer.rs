@@ -16,7 +16,11 @@ pub struct RenderOptions {
 
 impl Default for RenderOptions {
     fn default() -> Self {
-        RenderOptions { flipped: false, hl_from: None, hl_to: None }
+        RenderOptions {
+            flipped: false,
+            hl_from: None,
+            hl_to: None,
+        }
     }
 }
 
@@ -55,7 +59,11 @@ impl PngBoardRenderer<'_> {
                 let is_dark = (file_from_left + rank_from_bottom) % 2 == 0; // a1 = dark
 
                 // ── 1. Draw square background ──────────────────────────────────
-                let tile = if is_dark { self.style.dark_square() } else { self.style.light_square() };
+                let tile = if is_dark {
+                    self.style.dark_square()
+                } else {
+                    self.style.light_square()
+                };
                 blit(&mut canvas, tile, pixel_col, pixel_row);
 
                 // ── 2. Highlight overlay ───────────────────────────────────────
@@ -82,9 +90,13 @@ fn blit(dst: &mut RgbaImage, src: &RgbaImage, dx: u32, dy: u32) {
     let (sw, sh) = src.dimensions();
     let (dw, dh) = dst.dimensions();
     for y in 0..sh {
-        if dy + y >= dh { break; }
+        if dy + y >= dh {
+            break;
+        }
         for x in 0..sw {
-            if dx + x >= dw { break; }
+            if dx + x >= dw {
+                break;
+            }
             *dst.get_pixel_mut(dx + x, dy + y) = *src.get_pixel(x, y);
         }
     }
@@ -95,12 +107,18 @@ fn blit_alpha(dst: &mut RgbaImage, src: &RgbaImage, dx: u32, dy: u32) {
     let (sw, sh) = src.dimensions();
     let (dw, dh) = dst.dimensions();
     for y in 0..sh {
-        if dy + y >= dh { break; }
+        if dy + y >= dh {
+            break;
+        }
         for x in 0..sw {
-            if dx + x >= dw { break; }
+            if dx + x >= dw {
+                break;
+            }
             let sp = src.get_pixel(x, y);
             let a = sp[3] as f32 / 255.0;
-            if a < 0.004 { continue; }
+            if a < 0.004 {
+                continue;
+            }
             let dp = dst.get_pixel_mut(dx + x, dy + y);
             let inv = 1.0 - a;
             dp[0] = (sp[0] as f32 * a + dp[0] as f32 * inv) as u8;
@@ -117,9 +135,13 @@ fn alpha_fill(dst: &mut RgbaImage, dx: u32, dy: u32, sq_px: u32, col: Rgba<u8>) 
     let inv = 1.0 - a;
     let (dw, dh) = dst.dimensions();
     for y in 0..sq_px {
-        if dy + y >= dh { break; }
+        if dy + y >= dh {
+            break;
+        }
         for x in 0..sq_px {
-            if dx + x >= dw { break; }
+            if dx + x >= dw {
+                break;
+            }
             let dp = dst.get_pixel_mut(dx + x, dy + y);
             dp[0] = (col[0] as f32 * a + dp[0] as f32 * inv) as u8;
             dp[1] = (col[1] as f32 * a + dp[1] as f32 * inv) as u8;

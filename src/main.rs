@@ -6,13 +6,14 @@ mod kitty;
 mod pgn;
 mod png_renderer;
 mod renderer;
+mod sixel;
 mod tui;
 mod ui;
 
 use std::path::PathBuf;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use event::{Event, EventLoop};
 use ratatui::layout::Rect;
 use shakmaty::Chess;
@@ -38,6 +39,25 @@ struct Cli {
     /// Force Unicode board rendering even if Kitty graphics are available
     #[arg(long)]
     unicode: bool,
+
+    /// Board graphics backend: auto, kitty, sixel, unicode
+    #[arg(long, value_enum, default_value_t = GraphicsMode::Auto)]
+    graphics: GraphicsMode,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum GraphicsMode {
+    Auto,
+    Kitty,
+    Sixel,
+    Unicode,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum GraphicsBackend {
+    Kitty,
+    Sixel,
+    Unicode,
 }
 
 fn main() -> Result<()> {
@@ -47,13 +67,16 @@ fn main() -> Result<()> {
 
     let mut app = App::new(&cli.path)?;
 
-    // Detect Kitty support: use env TERM / TERM_PROGRAM heuristic.
-    let use_kitty = !cli.unicode && supports_kitty();
+    let graphics = select_graphics_backend(&cli);
+    let use_png_board = graphics != GraphicsBackend::Unicode;
 
     // Load Fritz assets (embedded in the binary).
     let board_style = FritzBoardStyle::new();
-    let piece_set   = FritzPieceSet::new();
-    let renderer    = PngBoardRenderer { style: &board_style, pieces: &piece_set };
+    let piece_set = FritzPieceSet::new();
+    let renderer = PngBoardRenderer {
+        style: &board_style,
+        pieces: &piece_set,
+    };
 
     let start_pos = Chess::default();
 
@@ -65,11 +88,11 @@ fn main() -> Result<()> {
     while app.running {
         // ── Draw TUI ─────────────────────────────────────────────────────────
         terminal.draw(|f| {
-            board_area = ui::draw(f, &app, use_kitty);
+            board_area = ui::draw(f, &app, use_png_board);
         })?;
 
-        // ── Overlay Kitty board PNG ───────────────────────────────────────────
-        if use_kitty && !board_area.is_empty() {
+        // ── Overlay bitmap board PNG ─────────────────────────────────────────
+        if use_png_board && !board_area.is_empty() {
             let pos: &Chess = app
                 .current_game
                 .as_ref()
@@ -79,21 +102,29 @@ fn main() -> Result<()> {
             let last = last_move_for(&app);
             let (hl_from, hl_to) = match &last {
                 Some(m) => (m.from(), Some(m.to())),
-                None    => (None, None),
+                None => (None, None),
             };
 
             let png = renderer.render(
                 pos,
-                &PngRO { flipped: false, hl_from, hl_to },
+                &PngRO {
+                    flipped: false,
+                    hl_from,
+                    hl_to,
+                },
             );
 
-            let _ = kitty::display(
-                &png,
-                board_area.x,
-                board_area.y,
-                board_area.width,
-                board_area.height,
-            );
+            let _ = match graphics {
+                GraphicsBackend::Kitty => kitty::display(
+                    &png,
+                    board_area.x,
+                    board_area.y,
+                    board_area.width,
+                    board_area.height,
+                ),
+                GraphicsBackend::Sixel => sixel::display(&png, board_area.x, board_area.y),
+                GraphicsBackend::Unicode => Ok(()),
+            };
         }
 
         // ── Handle events ─────────────────────────────────────────────────────
@@ -107,6 +138,27 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn select_graphics_backend(cli: &Cli) -> GraphicsBackend {
+    if cli.unicode {
+        return GraphicsBackend::Unicode;
+    }
+
+    match cli.graphics {
+        GraphicsMode::Auto => {
+            if supports_kitty() {
+                GraphicsBackend::Kitty
+            } else if supports_sixel() {
+                GraphicsBackend::Sixel
+            } else {
+                GraphicsBackend::Unicode
+            }
+        }
+        GraphicsMode::Kitty => GraphicsBackend::Kitty,
+        GraphicsMode::Sixel => GraphicsBackend::Sixel,
+        GraphicsMode::Unicode => GraphicsBackend::Unicode,
+    }
+}
+
 fn supports_kitty() -> bool {
     let term = std::env::var("TERM").unwrap_or_default();
     let term_prog = std::env::var("TERM_PROGRAM").unwrap_or_default();
@@ -114,4 +166,18 @@ fn supports_kitty() -> bool {
         || term_prog.to_lowercase().contains("kitty")
         || term_prog.to_lowercase().contains("wezterm")
         || std::env::var("KITTY_WINDOW_ID").is_ok()
+}
+
+fn supports_sixel() -> bool {
+    let term = std::env::var("TERM").unwrap_or_default().to_lowercase();
+    let term_prog = std::env::var("TERM_PROGRAM")
+        .unwrap_or_default()
+        .to_lowercase();
+
+    std::env::var("VTE_VERSION").is_ok()
+        || std::env::var("GNOME_TERMINAL_SCREEN").is_ok()
+        || term_prog.contains("gnome")
+        || term.contains("sixel")
+        || term.contains("mlterm")
+        || term.contains("foot")
 }

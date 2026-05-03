@@ -22,16 +22,22 @@ pub fn render_game_list(f: &mut Frame, area: Rect, app: &App) {
             let black = if m.black.is_empty() { "?" } else { &m.black };
             let vs = format!("{} vs {}", white, black);
             let event = m.event.as_deref().unwrap_or("?");
-            let date  = m.date.as_deref().unwrap_or("????");
-            let eco   = m.eco.as_deref().unwrap_or("---");
+            let date = m.date.as_deref().unwrap_or("????");
+            let eco = m.eco.as_deref().unwrap_or("---");
             let result = &m.result;
 
             Line::from(vec![
                 Span::styled(num, Style::default().fg(Q_DIM).bg(Q_BG)),
                 Span::styled(format!("{:<30}", vs), Style::default().fg(Q_TEXT).bg(Q_BG)),
-                Span::styled(format!(" {:>4} ", result), Style::default().fg(Q_DIM).bg(Q_BG)),
+                Span::styled(
+                    format!(" {:>4} ", result),
+                    Style::default().fg(Q_DIM).bg(Q_BG),
+                ),
                 Span::styled(format!("{:<6} ", eco), Style::default().fg(Q_DIM).bg(Q_BG)),
-                Span::styled(format!("{:.10} {}", event, date), Style::default().fg(Q_DIM).bg(Q_BG)),
+                Span::styled(
+                    format!("{:.10} {}", event, date),
+                    Style::default().fg(Q_DIM).bg(Q_BG),
+                ),
             ])
         })
         .map(ListItem::new)

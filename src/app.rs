@@ -1,12 +1,9 @@
 use std::path::Path;
 
+use crate::{db::FolderDatabase, pgn::LoadedGame};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::ListState;
-use crate::{
-    db::FolderDatabase,
-    pgn::LoadedGame,
-};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppScreen {
@@ -44,8 +41,7 @@ impl App {
 
     pub fn handle_key(&mut self, key: KeyEvent) {
         if key.code == KeyCode::Char('q')
-            || (key.code == KeyCode::Char('c')
-                && key.modifiers.contains(KeyModifiers::CONTROL))
+            || (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
         {
             self.running = false;
             return;
@@ -63,9 +59,9 @@ impl App {
                 self.screen = AppScreen::GamePicker;
             }
             KeyCode::Right | KeyCode::Char('l') => self.next_move(),
-            KeyCode::Left  | KeyCode::Char('h') => self.prev_move(),
-            KeyCode::Home  | KeyCode::Char('s') => self.go_start(),
-            KeyCode::End   | KeyCode::Char('e') => self.go_end(),
+            KeyCode::Left | KeyCode::Char('h') => self.prev_move(),
+            KeyCode::Home | KeyCode::Char('s') => self.go_start(),
+            KeyCode::End | KeyCode::Char('e') => self.go_end(),
             _ => {}
         }
     }
@@ -76,7 +72,7 @@ impl App {
                 self.screen = AppScreen::Main;
             }
             KeyCode::Down | KeyCode::Char('j') => self.picker_next(),
-            KeyCode::Up   | KeyCode::Char('k') => self.picker_prev(),
+            KeyCode::Up | KeyCode::Char('k') => self.picker_prev(),
             KeyCode::Enter => self.open_selected_game(),
             _ => {}
         }
@@ -84,20 +80,26 @@ impl App {
 
     fn picker_next(&mut self) {
         let len = self.db.len();
-        if len == 0 { return; }
+        if len == 0 {
+            return;
+        }
         let sel = self.picker_state.selected().unwrap_or(0);
         self.picker_state.select(Some((sel + 1).min(len - 1)));
     }
 
     fn picker_prev(&mut self) {
         let len = self.db.len();
-        if len == 0 { return; }
+        if len == 0 {
+            return;
+        }
         let sel = self.picker_state.selected().unwrap_or(0);
         self.picker_state.select(Some(sel.saturating_sub(1)));
     }
 
     fn open_selected_game(&mut self) {
-        let Some(idx) = self.picker_state.selected() else { return };
+        let Some(idx) = self.picker_state.selected() else {
+            return;
+        };
         if let Ok(game) = self.db.load_game(idx) {
             self.current_game = Some(game);
             self.current_ply = 0;
@@ -106,7 +108,9 @@ impl App {
     }
 
     fn next_move(&mut self) {
-        let Some(game) = &self.current_game else { return };
+        let Some(game) = &self.current_game else {
+            return;
+        };
         let max = game.positions.len().saturating_sub(1);
         if self.current_ply < max {
             self.current_ply += 1;

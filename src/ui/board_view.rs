@@ -4,12 +4,7 @@
 //! (the PNG is overlaid by the caller after `terminal.draw`).
 //! When Kitty is not available it falls back to the Unicode `BoardWidget`.
 
-use ratatui::{
-    layout::Rect,
-    style::Style,
-    widgets::Paragraph,
-    Frame,
-};
+use ratatui::{layout::Rect, style::Style, widgets::Paragraph, Frame};
 use shakmaty::Chess;
 
 use crate::app::App;
@@ -45,7 +40,10 @@ fn render_unicode(f: &mut Frame, area: Rect, pos: &Chess, last_move: Option<shak
     f.render_widget(
         BoardWidget {
             pos,
-            options: UniRO { flipped: false, last_move },
+            options: UniRO {
+                flipped: false,
+                last_move,
+            },
         },
         area,
     );

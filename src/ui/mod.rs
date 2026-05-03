@@ -14,11 +14,11 @@ use crate::app::{App, AppScreen};
 use crate::renderer::{BOARD_COLS, BOARD_ROWS};
 
 // ── QBasic-inspired palette ───────────────────────────────────────────────────
-pub const Q_BG: Color = Color::Blue;          // classic QBasic dark blue
+pub const Q_BG: Color = Color::Blue; // classic QBasic dark blue
 pub const Q_TEXT: Color = Color::White;
 pub const Q_MENU_BG: Color = Color::Black;
 pub const Q_MENU_FG: Color = Color::White;
-pub const Q_MENU_KEY: Color = Color::Yellow;  // function key labels
+pub const Q_MENU_KEY: Color = Color::Yellow; // function key labels
 pub const Q_BORDER: Color = Color::Cyan;
 pub const Q_SEL_BG: Color = Color::Cyan;
 pub const Q_SEL_FG: Color = Color::Black;
@@ -39,8 +39,7 @@ fn menu_bar() -> Paragraph<'static> {
         Span::styled("  Quit", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
         Span::styled("=F6/q", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
     ];
-    Paragraph::new(Line::from(spans))
-        .style(Style::default().bg(Q_MENU_BG))
+    Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_MENU_BG))
 }
 
 fn status_bar(app: &App) -> Paragraph<'_> {
@@ -127,10 +126,7 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
     let board_total = BOARD_COLS + 2; // +2 for block borders
     let top_cols = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(board_total),
-            Constraint::Min(20),
-        ])
+        .constraints([Constraint::Length(board_total), Constraint::Min(20)])
         .split(top_row);
 
     let board_panel = top_cols[0];
@@ -166,7 +162,12 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
     let engine_text: Vec<Line> = app
         .engine_lines
         .iter()
-        .map(|l| Line::from(Span::styled(l.as_str(), Style::default().fg(Q_DIM).bg(Q_BG))))
+        .map(|l| {
+            Line::from(Span::styled(
+                l.as_str(),
+                Style::default().fg(Q_DIM).bg(Q_BG),
+            ))
+        })
         .collect();
     f.render_widget(
         Paragraph::new(engine_text).style(Style::default().bg(Q_BG)),
