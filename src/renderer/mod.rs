@@ -1,4 +1,4 @@
-puse shakmaty::{Chess, Color, File, Position, Rank, Role, Square};
+use shakmaty::{Chess, Color, File, Position, Rank, Role, Square};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
