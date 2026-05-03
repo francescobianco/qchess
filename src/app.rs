@@ -40,7 +40,7 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
-        if key.code == KeyCode::Char('q')
+        if matches!(key.code, KeyCode::Char('q') | KeyCode::Char('Q'))
             || (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
         {
             self.running = false;
@@ -55,7 +55,7 @@ impl App {
 
     fn handle_key_main(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::F(1) | KeyCode::Char('b') => {
+            KeyCode::Char('g') | KeyCode::Char('G') => {
                 self.screen = AppScreen::GamePicker;
             }
             KeyCode::Right | KeyCode::Char('l') => self.next_move(),
@@ -68,7 +68,7 @@ impl App {
 
     fn handle_key_picker(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::Esc | KeyCode::F(1) | KeyCode::Char('b') => {
+            KeyCode::Esc | KeyCode::Char('g') | KeyCode::Char('G') => {
                 self.screen = AppScreen::Main;
             }
             KeyCode::Down | KeyCode::Char('j') => self.picker_next(),

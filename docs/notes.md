@@ -12,9 +12,11 @@ Rust TUI chess database browser. Any folder with .pgn files is a valid database.
 
 **Board fallback behavior**: la scacchiera Unicode viene sempre renderizzata sotto al PNG. Se il terminale ignora Kitty/SIXEL o il bitmap fallisce, il pannello non rimane vuoto.
 
-**Fritz assets**: tiles estratti da `fritz_3.png` con origine interna corretta `board_x=16`, `board_y=40`, `sq=40px`. Le coordinate `14,38` includono 2px di bordo e tagliano/spostano le figurine. Gli sprite usano alpha ricostruita confrontando il crop con il tile di sfondo e includendo le aree bianche chiuse dal contorno nero. `BoardStyle` + `PieceSet` traits per temi personalizzabili. Fritz tile inclusi con `include_bytes!` in `assets/fritz/`.
+**Graphics terminal handoff**: in `--graphics auto`, se il terminale corrente non supporta bitmap e l'app trova `kitty` o `wezterm` nel `PATH`, apre una nuova finestra separata e rilancia qchess con `--graphics kitty`. La finestra lanciata imposta un font size esplicito `14.0`. `QCHESS_GRAPHICS_CHILD=1` evita rilanci ricorsivi. Se non trova un terminale grafico, resta nel terminale corrente con fallback Unicode.
 
-**Theme**: QBasic-inspired — Color::Blue background, black menu bar with yellow F-key labels, cyan borders, cyan selection highlight, dark grey status bar.
+**Fritz assets**: tiles estratti da `fritz_3.png` con origine interna corretta `board_x=16`, `board_y=40`, `sq=40px`. Le coordinate `14,38` includono 2px di bordo e tagliano/spostano le figurine. Gli sprite non devono contenere pixel della casa: l'alpha va ricostruita usando sorgenti su casa chiara quando possibile, filtrando il tratteggio delle case scure e includendo solo le aree bianche chiuse dal contorno nero. `BoardStyle` + `PieceSet` traits per temi personalizzabili. Fritz tile inclusi con `include_bytes!` in `assets/fritz/`.
+
+**Theme**: QBasic-inspired — Color::Blue background, black menu bar with yellow mnemonic labels, cyan borders, cyan selection highlight, dark grey status bar.
 
 **State**: `AppScreen::Main` (normal) | `AppScreen::GamePicker` (floating overlay). Board always visible showing starting position when no game loaded.
 

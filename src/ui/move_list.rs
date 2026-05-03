@@ -11,7 +11,7 @@ use crate::ui::{Q_BG, Q_DIM, Q_TEXT};
 
 pub fn render_move_list(f: &mut Frame, area: Rect, app: &App) {
     let Some(game) = &app.current_game else {
-        let p = Paragraph::new("No game open. Press F1 to browse.")
+        let p = Paragraph::new("No game open. Press G to browse games.")
             .style(Style::default().fg(Q_DIM).bg(Q_BG));
         f.render_widget(p, area);
         return;

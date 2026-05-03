@@ -10,7 +10,11 @@ mod sixel;
 mod tui;
 mod ui;
 
-use std::path::PathBuf;
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
@@ -65,9 +69,13 @@ fn main() -> Result<()> {
 
     init_panic_hook();
 
+    let graphics = select_graphics_backend(&cli);
+    if graphics == GraphicsBackend::Unicode && reopen_in_graphics_terminal(&cli)? {
+        return Ok(());
+    }
+
     let mut app = App::new(&cli.path)?;
 
-    let graphics = select_graphics_backend(&cli);
     let use_png_board = graphics != GraphicsBackend::Unicode;
 
     // Load Fritz assets (embedded in the binary).
@@ -157,6 +165,94 @@ fn select_graphics_backend(cli: &Cli) -> GraphicsBackend {
         GraphicsMode::Sixel => GraphicsBackend::Sixel,
         GraphicsMode::Unicode => GraphicsBackend::Unicode,
     }
+}
+
+fn reopen_in_graphics_terminal(cli: &Cli) -> Result<bool> {
+    if cli.unicode
+        || cli.graphics != GraphicsMode::Auto
+        || std::env::var_os("QCHESS_GRAPHICS_CHILD").is_some()
+    {
+        return Ok(false);
+    }
+
+    let Some(launcher) = find_graphics_terminal() else {
+        eprintln!(
+            "qchess: bitmap board unavailable in this terminal; install kitty or wezterm, or run with --unicode"
+        );
+        return Ok(false);
+    };
+
+    let exe = std::env::current_exe()?;
+    let cwd = std::env::current_dir()?;
+    let path = cli.path.as_os_str().to_os_string();
+
+    let mut command = launcher.command(&exe, &cwd, &path);
+    command.env("QCHESS_GRAPHICS_CHILD", "1");
+    command.spawn()?;
+    Ok(true)
+}
+
+#[derive(Clone, Copy, Debug)]
+enum GraphicsTerminal {
+    Kitty,
+    WezTerm,
+}
+
+const GRAPHICS_TERMINAL_FONT_SIZE: &str = "14.0";
+
+impl GraphicsTerminal {
+    fn command(self, exe: &Path, cwd: &Path, path: &OsString) -> Command {
+        match self {
+            GraphicsTerminal::Kitty => {
+                let mut command = Command::new("kitty");
+                command
+                    .arg("--title")
+                    .arg("qchess")
+                    .arg("--working-directory")
+                    .arg(cwd)
+                    .arg("--override")
+                    .arg(format!("font_size={GRAPHICS_TERMINAL_FONT_SIZE}"))
+                    .arg(exe)
+                    .arg("--graphics")
+                    .arg("kitty")
+                    .arg(path);
+                command
+            }
+            GraphicsTerminal::WezTerm => {
+                let mut command = Command::new("wezterm");
+                command
+                    .arg("--config")
+                    .arg(format!("font_size={GRAPHICS_TERMINAL_FONT_SIZE}"))
+                    .arg("start")
+                    .arg("--cwd")
+                    .arg(cwd)
+                    .arg("--")
+                    .arg(exe)
+                    .arg("--graphics")
+                    .arg("kitty")
+                    .arg(path);
+                command
+            }
+        }
+    }
+}
+
+fn find_graphics_terminal() -> Option<GraphicsTerminal> {
+    if command_exists("kitty") {
+        Some(GraphicsTerminal::Kitty)
+    } else if command_exists("wezterm") {
+        Some(GraphicsTerminal::WezTerm)
+    } else {
+        None
+    }
+}
+
+fn command_exists(name: &str) -> bool {
+    let Some(paths) = std::env::var_os("PATH") else {
+        return false;
+    };
+
+    std::env::split_paths(&paths).any(|path| path.join(name).is_file())
 }
 
 fn supports_kitty() -> bool {

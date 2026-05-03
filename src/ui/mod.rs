@@ -18,7 +18,7 @@ pub const Q_BG: Color = Color::Blue; // classic QBasic dark blue
 pub const Q_TEXT: Color = Color::White;
 pub const Q_MENU_BG: Color = Color::Black;
 pub const Q_MENU_FG: Color = Color::White;
-pub const Q_MENU_KEY: Color = Color::Yellow; // function key labels
+pub const Q_MENU_KEY: Color = Color::Yellow; // menu mnemonic labels
 pub const Q_BORDER: Color = Color::Cyan;
 pub const Q_SEL_BG: Color = Color::Cyan;
 pub const Q_SEL_FG: Color = Color::Black;
@@ -28,16 +28,18 @@ pub const Q_DIM: Color = Color::DarkGray;
 
 fn menu_bar() -> Paragraph<'static> {
     let spans = vec![
-        Span::styled(" Browse", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=F1", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
-        Span::styled("  Database", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=F2", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
-        Span::styled("  Board", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=F3", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
-        Span::styled("  Engine", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=F4", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
-        Span::styled("  Quit", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("=F6/q", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled(" Database", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=D", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Partite", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=G", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Mosse", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=M", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Motore", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=E", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Opzioni", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("  ?", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("  Esci", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=Q", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
     ];
     Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_MENU_BG))
 }
@@ -55,8 +57,8 @@ fn status_bar(app: &App) -> Paragraph<'_> {
     };
 
     let hint = match app.screen {
-        AppScreen::Main => " │ ←→ moves  Home/End  F1=Browse  q=quit",
-        AppScreen::GamePicker => " │ ↑↓ navigate  Enter=open  Esc=close",
+        AppScreen::Main => " │ D=database  G=partite  M=mosse  E=motore  Q=esci",
+        AppScreen::GamePicker => " │ ↑↓ navigate  Enter=open  Esc/G=close",
     };
 
     let spans = vec![
@@ -184,7 +186,7 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
 
         let db_path = app.db.root.display().to_string();
         let popup_block = Block::default()
-            .title(format!(" Browse — {} ({} games) ", db_path, app.db.len()))
+            .title(format!(" Partite — {} ({} games) ", db_path, app.db.len()))
             .title_alignment(Alignment::Left)
             .borders(Borders::ALL)
             .border_type(BorderType::Double)
