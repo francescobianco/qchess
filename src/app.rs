@@ -3,8 +3,6 @@ use std::path::Path;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::ListState;
-use shakmaty::Chess;
-
 use crate::{
     db::FolderDatabase,
     pgn::LoadedGame,
@@ -42,11 +40,6 @@ impl App {
             running: true,
             engine_lines: vec!["No engine loaded. [Future: UCI integration]".into()],
         })
-    }
-
-    // The position to display on the board right now.
-    pub fn current_position(&self) -> Option<&Chess> {
-        self.current_game.as_ref().map(|g| &g.positions[self.current_ply])
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
