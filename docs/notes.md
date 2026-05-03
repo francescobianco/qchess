@@ -6,21 +6,25 @@ originSessionId: b53f3c15-ba19-48ea-8891-2c31ff392650
 ---
 Rust TUI chess database browser. Any folder with .pgn files is a valid database.
 
-**Stack**: ratatui 0.29, crossterm 0.28, shakmaty 0.28, pgn-reader 0.27, walkdir 2, image 0.24 (0.25 richiede Rust 1.88, installato 1.86), base64 0.22
+**Stack**: ratatui 0.29, crossterm 0.28, shakmaty 0.28, pgn-reader 0.27, walkdir 2, image 0.24 (0.25 requires Rust 1.88; installed toolchain is 1.86), base64 0.22
 
-**Board rendering**: PNG via backend auto Kitty/SIXEL. Kitty viene usato su kitty/WezTerm; SIXEL viene scelto su VTE/GNOME Terminal quando rilevabile, cosi' la scacchiera PNG funziona anche su Ubuntu GNOME. Fallback Unicode automatico con `--unicode`, `--graphics unicode`, o se non viene rilevato un backend bitmap. Si puo' forzare con `--graphics kitty` o `--graphics sixel`.
+**Board rendering**: PNG via automatic Kitty/SIXEL backend selection. Kitty is used on kitty/WezTerm; SIXEL is selected on VTE/GNOME Terminal when detectable, so the PNG board can work on Ubuntu GNOME. Unicode fallback is available with `--unicode`, `--graphics unicode`, or when no bitmap backend is detected. Backends can be forced with `--graphics kitty` or `--graphics sixel`.
 
-**Board fallback behavior**: la scacchiera Unicode viene sempre renderizzata sotto al PNG. Se il terminale ignora Kitty/SIXEL o il bitmap fallisce, il pannello non rimane vuoto.
+**Board fallback behavior**: the Unicode board is always rendered below the PNG. If the terminal ignores Kitty/SIXEL or bitmap drawing fails, the board area is not blank.
 
-**Board cursor**: le frecce muovono `App::selected_square` sulla scacchiera. Nel renderer PNG la casa corrente ha un bordo blu pieno da 2px disegnato sopra casa e pezzo; nel fallback Unicode la casa corrente usa sfondo blu.
+**Board cursor**: arrow keys move `App::selected_square` on the chessboard. In the PNG renderer the current square has a solid 2 px blue border drawn above the square and piece; in the Unicode fallback the current square uses a blue background.
 
-**Graphics terminal handoff**: in `--graphics auto`, se il terminale corrente non supporta bitmap e l'app trova `kitty` o `wezterm` nel `PATH`, apre una nuova finestra separata e rilancia qchess con `--graphics kitty`. La finestra lanciata imposta un font size esplicito `14.0`. `QCHESS_GRAPHICS_CHILD=1` evita rilanci ricorsivi. Se non trova un terminale grafico, resta nel terminale corrente con fallback Unicode.
+**Graphics terminal handoff**: in `--graphics auto`, if the current terminal does not support bitmap rendering and the app finds `kitty` or `wezterm` in `PATH`, it opens a separate window and relaunches qchess with `--graphics kitty`. The launched window uses explicit font size `14.0`. `QCHESS_GRAPHICS_CHILD=1` prevents recursive relaunches. If no graphics-capable terminal is found, qchess stays in the current terminal with Unicode fallback.
 
-**Fritz assets**: tiles estratti da `fritz_3.png` con origine interna corretta `board_x=16`, `board_y=40`, `sq=40px`. Le coordinate `14,38` includono 2px di bordo e tagliano/spostano le figurine. Gli sprite non devono contenere pixel della casa: l'alpha va ricostruita usando sorgenti su casa chiara quando possibile, filtrando il tratteggio delle case scure e includendo solo le aree bianche chiuse dal contorno nero. `BoardStyle` + `PieceSet` traits per temi personalizzabili. Fritz tile inclusi con `include_bytes!` in `assets/fritz/`.
+**Fritz assets**: tiles are extracted from `fritz_3.png` with corrected internal origin `board_x=16`, `board_y=40`, `sq=40px`. Coordinates `14,38` include 2 px of border and cut/shift the pieces. Piece sprites must not contain square pixels: alpha is reconstructed from light-square sources when possible, dark-square hatch is filtered, and only white areas enclosed by the black outline are included. `BoardStyle` + `PieceSet` traits support custom themes. Fritz tiles are embedded with `include_bytes!` from `assets/fritz/`.
 
-**Theme**: current style from `docs/style.md` — general white background, black menu bar with white text, black panel borders, blue active square cursor, black status bar. The engine analysis area uses a horizontal black title bar, not a bordered box.
+**Theme**: current style from `docs/style.md` — general white background, black menu bar with white text, no bordered boxes around the board or move list, blue active square cursor, black status bar. The engine analysis area uses a horizontal ASCII separator line with title, not a bordered box.
 
-**State**: `AppScreen::Main` (normal) | `AppScreen::GamePicker` (floating overlay). Board always visible showing starting position when no game loaded.
+**Fallback board geometry**: Unicode board uses a 1-column rank label strip directly adjacent to the board, 8 squares at 4x2 terminal cells, one bottom coordinate bar, and a 1-column black separator on the right before the move list. Total board widget size is 34x17. The top row is fixed at board height, so no empty rows appear between board coordinates and the engine analysis separator.
+
+**State**: `AppScreen::Main` (normal) | `AppScreen::GamePicker` (floating overlay) | `AppScreen::EngineMenu` (menu-bar dropdown) | `AppScreen::EngineEditor` (engine form overlay). Board always visible showing starting position when no game is loaded.
+
+**Engine menu**: `E` opens the Engine dropdown below the `Engine` menu-bar entry. The dropdown shows `Add New Engine`, a separator, and registered engines with an active flag. Selecting an engine opens the editor. Engine config persists to `$HOME/.qchess.toml`.
 
 **Why:** User wants retro chess visuals inspired by Fritz/KnightStalker assets, but the application chrome is no longer QBasic blue.
 **How to apply:** Keep new UI elements on white background with black structural chrome. The menu stays black; engine analysis uses a title separator bar.

@@ -1,7 +1,17 @@
+# Keyboard
 
+Keyboard input is always active.
 
-la tastiera e sempre presente nel applicazione
+## Board Cursor
 
-se muovono i tasti freccia si muove il selettore di casella corrente sulla scacchiera con invio o con spazio si selezioa la casella corrente e si prepara la mossa nel caso di spostametto successivo un secono colpo di spazio o invio completa la mossa se e legale se non e legale si annulla l'input iniziato
+The arrow keys move the current square selector on the chessboard.
 
-con "+" e "-" si aumentano le linee di analisi del motore se spento con "+" si accende lìanalisi
+Press `Enter` or `Space` to select the current square and begin move input.
+
+Press `Enter` or `Space` again on a destination square to complete the move if it is legal. If the move is illegal, the pending input is cancelled.
+
+## Engine Analysis
+
+- `+` increases the number of engine analysis lines.
+- If analysis is off, `+` starts analysis.
+- `-` decreases the number of engine analysis lines.

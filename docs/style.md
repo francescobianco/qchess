@@ -1,5 +1,30 @@
-abbiamo un nuovo stile grafico non piu ispirato a qbasic
+# Style
 
-ma abbiamo il background in generale bianco la barra dei menu nera 
-la barra che separa le analisi del motore non e un box bordato come classico ma una barra orizzontale con titolo 
-inoltre la scacchira sul bordo contiene le coordinate foregraound nero testo bianco
+The application chrome is no longer QBasic-inspired.
+
+## Palette
+
+- General background: white.
+- Main text: black.
+- Menu bar: black background with white text.
+- Status bar: black background with white text.
+- Active square cursor: blue.
+
+## Board And Move List
+
+The chessboard and move list are not wrapped in bordered boxes.
+
+The chessboard border contains coordinates.
+The left rank coordinate column is one character wide and sits immediately next to the board squares.
+The chessboard has a single black separator column on its right side before the move list.
+
+Coordinate styling:
+
+- Background: black.
+- Text: white.
+
+## Engine Analysis
+
+The engine analysis separator is not a bordered box.
+
+It is a horizontal ASCII line with a title.

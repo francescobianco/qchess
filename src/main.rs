@@ -24,9 +24,10 @@ use ratatui::layout::Rect;
 use shakmaty::Chess;
 
 use crate::{
-    app::App,
+    app::{App, AppScreen},
     assets::{FritzBoardStyle, FritzPieceSet},
     png_renderer::{PngBoardRenderer, RenderOptions as PngRO},
+    renderer::{LABEL_W, SQ_H, SQ_W},
     tui::init_panic_hook,
     ui::board_view::last_move_for,
 };
@@ -101,7 +102,11 @@ fn main() -> Result<()> {
         })?;
 
         // ── Overlay bitmap board PNG ─────────────────────────────────────────
-        if use_png_board && !board_area.is_empty() {
+        if use_png_board && !board_area.is_empty() && app.screen != AppScreen::Main {
+            if graphics == GraphicsBackend::Kitty {
+                let _ = kitty::clear_at(board_area.x + LABEL_W, board_area.y);
+            }
+        } else if use_png_board && !board_area.is_empty() {
             let pos: &Chess = app
                 .current_game
                 .as_ref()
@@ -127,12 +132,14 @@ fn main() -> Result<()> {
             let _ = match graphics {
                 GraphicsBackend::Kitty => kitty::display(
                     &png,
-                    board_area.x,
+                    board_area.x + LABEL_W,
                     board_area.y,
-                    board_area.width,
-                    board_area.height,
+                    SQ_W * 8,
+                    SQ_H * 8,
                 ),
-                GraphicsBackend::Sixel => sixel::display(&png, board_area.x, board_area.y),
+                GraphicsBackend::Sixel => {
+                    sixel::display(&png, board_area.x + LABEL_W, board_area.y)
+                }
                 GraphicsBackend::Unicode => Ok(()),
             };
         }

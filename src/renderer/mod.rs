@@ -4,8 +4,9 @@ use shakmaty::{Chess, Color as ChessColor, File, Position, Rank, Role, Square};
 // Each square: 4 chars wide × 2 rows tall (~1:1 aspect at typical font metrics)
 pub const SQ_W: u16 = 4;
 pub const SQ_H: u16 = 2;
-pub const LABEL_W: u16 = 2; // rank label column ("8 ")
-pub const BOARD_COLS: u16 = LABEL_W + SQ_W * 8; // 34
+pub const LABEL_W: u16 = 1; // rank label column ("8")
+pub const SEP_W: u16 = 1; // black separator column at the right edge
+pub const BOARD_COLS: u16 = LABEL_W + SQ_W * 8 + SEP_W; // 34
 pub const BOARD_ROWS: u16 = SQ_H * 8 + 1; // 17
 
 // Fritz-inspired board palette
@@ -114,11 +115,7 @@ impl Widget for BoardWidget<'_> {
                     if x >= area.right() {
                         continue;
                     }
-                    let sym = if dy == 1 && lx == 0 {
-                        digit_str as &str
-                    } else {
-                        " "
-                    };
+                    let sym = if dy == 1 { digit_str as &str } else { " " };
                     set_cell(buf, x, y, sym, SURROUND_FG, SURROUND_BG);
                 }
             }
@@ -238,6 +235,17 @@ impl Widget for BoardWidget<'_> {
                         set_cell(buf, x, label_y, " ", SURROUND_BG, SURROUND_BG);
                     }
                 }
+            }
+        }
+
+        // ── Right separator ───────────────────────────────────────────────────
+        let sep_x = area.x + LABEL_W + SQ_W * 8;
+        if sep_x < area.right() {
+            for y in area.y..area.y + BOARD_ROWS {
+                if y >= area.bottom() {
+                    break;
+                }
+                set_cell(buf, sep_x, y, " ", SURROUND_FG, SURROUND_BG);
             }
         }
     }

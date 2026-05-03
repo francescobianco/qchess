@@ -1,12 +1,22 @@
+# Layout
 
+## Main Screen
 
-il layout di base della applicazione e questo
+The base layout is:
 
-in alto la barra di menu
-a sinistra sotto la barra sempre presente la scacchiera a prescindere che ci siano partite in corso o database aperte
-a destra della scacchira la sezione con la sequenza delle mosse giocate o della partita aperta in corso
-i basso tutto sotto la lista della mosse che la scacchiera quindi la sezione sotto a queste due sara la sezione delle output di analisi del motore scacchistico
+1. Menu bar at the top.
+2. Chessboard always visible on the left below the menu bar.
+3. Move list to the right of the chessboard.
+4. Engine analysis output below the chessboard and move list.
+5. Status bar at the bottom.
 
-le partite vengno elaborare una alla volta per cambiare partita ci sara il menu cerca partite apri database
+The chessboard must remain visible whether or not a game or database is open.
 
-tu ai aperete due cose il database corrente e  la partita corrente
+## State Model
+
+The application keeps two current objects:
+
+- Current database.
+- Current game.
+
+Games are processed one at a time. Changing games happens through the Games menu and database open/search flows.

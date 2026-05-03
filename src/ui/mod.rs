@@ -6,11 +6,11 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, StatefulWidget},
     Frame,
 };
 
-use crate::app::{App, AppScreen};
+use crate::app::{App, AppScreen, EngineEditorButton, EngineEditorFocus};
 use crate::renderer::{BOARD_COLS, BOARD_ROWS};
 
 // ── Current application palette ───────────────────────────────────────────────
@@ -28,12 +28,11 @@ pub const Q_DIM: Color = Color::DarkGray;
 fn menu_bar() -> Paragraph<'static> {
     let spans = vec![
         Span::styled(" Database", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("  Partite", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("  Mosse", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("  Motore", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("  Opzioni", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("  Games", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("  Moves", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("  Engine", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("  Options", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
         Span::styled("  ?", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
-        Span::styled("  Esci", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
     ];
     Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_MENU_BG))
 }
@@ -51,8 +50,10 @@ fn status_bar(app: &App) -> Paragraph<'_> {
     };
 
     let hint = match app.screen {
-        AppScreen::Main => " │ ↑↓←→ casella  G=partite  D/M/E=menu  Q=esci",
+        AppScreen::Main => " │ ↑↓←→ square  G=games  D/M/E=menu  Q=quit",
         AppScreen::GamePicker => " │ ↑↓ navigate  Enter=open  Esc/G=close",
+        AppScreen::EngineMenu => " │ ↑↓ navigate  Enter=open  Esc/E=close",
+        AppScreen::EngineEditor => " │ Tab=next field  Enter=activate  Esc=cancel",
     };
 
     let spans = vec![
@@ -60,16 +61,6 @@ fn status_bar(app: &App) -> Paragraph<'_> {
         Span::styled(hint, Style::default().fg(Q_DIM).bg(Q_STATUS_BG)),
     ];
     Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_STATUS_BG))
-}
-
-fn qblock(title: &str) -> Block<'_> {
-    Block::default()
-        .title(format!(" {} ", title))
-        .title_alignment(Alignment::Left)
-        .borders(Borders::ALL)
-        .border_type(BorderType::Plain)
-        .border_style(Style::default().fg(Q_BORDER))
-        .style(Style::default().bg(Q_BG))
 }
 
 /// Returns a centered rect of fixed `width × height` within `parent`.
@@ -106,49 +97,28 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
 
     // ── Main area: board (fixed width) | moves; engine below both ─────────────
     // Vertical: top row (board + moves) | engine panel
-    let engine_height: u16 = 6;
     let main_rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(BOARD_ROWS + 2), // board+moves (block border = +2)
-            Constraint::Length(engine_height),
-        ])
+        .constraints([Constraint::Length(BOARD_ROWS), Constraint::Min(0)])
         .split(main);
 
     let top_row = main_rows[0];
     let engine_area = main_rows[1];
 
     // Horizontal split: board | moves
-    let board_total = BOARD_COLS + 2; // +2 for block borders
     let top_cols = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(board_total), Constraint::Min(20)])
+        .constraints([Constraint::Length(BOARD_COLS), Constraint::Min(20)])
         .split(top_row);
 
-    let board_panel = top_cols[0];
-    let moves_panel = top_cols[1];
+    let board_area = top_cols[0];
+    let moves_area = top_cols[1];
 
     // ── Board ─────────────────────────────────────────────────────────────────
-    let board_title = match &app.current_game {
-        Some(g) => format!(
-            "{} vs {}  {}  {}",
-            g.game_ref.meta.white,
-            g.game_ref.meta.black,
-            g.game_ref.meta.event.as_deref().unwrap_or("?"),
-            g.game_ref.meta.result,
-        ),
-        None => "No game — starting position".to_string(),
-    };
-    let board_block = qblock(&board_title);
-    let board_inner = board_block.inner(board_panel);
-    f.render_widget(board_block, board_panel);
-    board_view::render_board(f, board_inner, app, use_kitty);
+    board_view::render_board(f, board_area, app, use_kitty);
 
     // ── Moves ─────────────────────────────────────────────────────────────────
-    let moves_block = qblock("Moves");
-    let moves_inner = moves_block.inner(moves_panel);
-    f.render_widget(moves_block, moves_panel);
-    move_list::render_move_list(f, moves_inner, app);
+    move_list::render_move_list(f, moves_area, app);
 
     // ── Engine panel ──────────────────────────────────────────────────────────
     let engine_rows = Layout::default()
@@ -156,12 +126,8 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
         .constraints([Constraint::Length(1), Constraint::Min(0)])
         .split(engine_area);
     f.render_widget(
-        Paragraph::new(" Engine Analysis ").style(
-            Style::default()
-                .fg(Q_MENU_FG)
-                .bg(Q_MENU_BG)
-                .add_modifier(Modifier::BOLD),
-        ),
+        Paragraph::new(engine_separator(engine_rows[0].width))
+            .style(Style::default().fg(Q_TEXT).bg(Q_BG)),
         engine_rows[0],
     );
 
@@ -190,7 +156,7 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
 
         let db_path = app.db.root.display().to_string();
         let popup_block = Block::default()
-            .title(format!(" Partite — {} ({} games) ", db_path, app.db.len()))
+            .title(format!(" Games — {} ({} games) ", db_path, app.db.len()))
             .title_alignment(Alignment::Left)
             .borders(Borders::ALL)
             .border_type(BorderType::Double)
@@ -203,5 +169,184 @@ pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect 
         game_list::render_game_list(f, popup_inner, app);
     }
 
-    board_inner
+    if app.screen == AppScreen::EngineMenu {
+        render_engine_menu(f, app, full);
+    }
+
+    if app.screen == AppScreen::EngineEditor {
+        render_engine_editor(f, app, full);
+    }
+
+    board_area
+}
+
+fn engine_separator(width: u16) -> String {
+    let title = " Engine Analysis ";
+    let width = width as usize;
+    if width <= title.len() {
+        return "-".repeat(width);
+    }
+
+    let left = (width - title.len()) / 2;
+    let right = width - title.len() - left;
+    format!("{}{}{}", "-".repeat(left), title, "-".repeat(right))
+}
+
+fn render_engine_menu(f: &mut Frame, app: &App, full: Rect) {
+    let menu_x = 23;
+    let menu_y = 1;
+    let menu_w = 44.min(full.width.saturating_sub(menu_x));
+    let item_count = 2 + app.config.engines.len() as u16 + u16::from(app.config.engines.is_empty());
+    let menu_h = (item_count + 2).min(full.height.saturating_sub(menu_y));
+    let popup_area = Rect {
+        x: menu_x,
+        y: menu_y,
+        width: menu_w,
+        height: menu_h,
+    };
+    if popup_area.is_empty() {
+        return;
+    }
+    f.render_widget(Clear, popup_area);
+
+    let block = Block::default()
+        .title_alignment(Alignment::Left)
+        .borders(Borders::ALL)
+        .border_type(BorderType::Plain)
+        .border_style(Style::default().fg(Q_BORDER))
+        .style(Style::default().bg(Q_BG));
+    let inner = block.inner(popup_area);
+    f.render_widget(block, popup_area);
+
+    let mut items = vec![
+        ListItem::new(Line::from(Span::styled(
+            "Add New Engine",
+            Style::default().fg(Q_TEXT).bg(Q_BG),
+        ))),
+        ListItem::new(Line::from(Span::styled(
+            "----------------",
+            Style::default().fg(Q_DIM).bg(Q_BG),
+        ))),
+    ];
+
+    for (idx, engine) in app.config.engines.iter().enumerate() {
+        let active = if app.config.active_engine == Some(idx) {
+            "[active]"
+        } else {
+            "        "
+        };
+        items.push(ListItem::new(Line::from(vec![
+            Span::styled(format!("{active} "), Style::default().fg(Q_DIM).bg(Q_BG)),
+            Span::styled(engine.name.as_str(), Style::default().fg(Q_TEXT).bg(Q_BG)),
+            Span::styled(
+                format!("  {}", engine.command),
+                Style::default().fg(Q_DIM).bg(Q_BG),
+            ),
+        ])));
+    }
+
+    if app.config.engines.is_empty() {
+        items.push(ListItem::new(Line::from(Span::styled(
+            "No registered engines",
+            Style::default().fg(Q_DIM).bg(Q_BG),
+        ))));
+    }
+
+    let list = List::new(items)
+        .style(Style::default().bg(Q_BG))
+        .highlight_style(Style::default().fg(Q_SEL_FG).bg(Q_SEL_BG));
+    let mut state = app.engine_menu_state.clone();
+    StatefulWidget::render(list, inner, f.buffer_mut(), &mut state);
+}
+
+fn render_engine_editor(f: &mut Frame, app: &App, full: Rect) {
+    let Some(editor) = app.engine_editor.as_ref() else {
+        return;
+    };
+
+    let popup_area = centered_fixed(full.width.min(72), full.height.min(16), full);
+    f.render_widget(Clear, popup_area);
+
+    let title = if editor.index.is_some() {
+        " Edit Engine "
+    } else {
+        " Add Engine "
+    };
+    let block = Block::default()
+        .title(title)
+        .title_alignment(Alignment::Left)
+        .borders(Borders::ALL)
+        .border_type(BorderType::Plain)
+        .border_style(Style::default().fg(Q_BORDER))
+        .style(Style::default().bg(Q_BG));
+    let inner = block.inner(popup_area);
+    f.render_widget(block, popup_area);
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(1),
+            Constraint::Length(1),
+        ])
+        .split(inner);
+
+    render_editor_field(
+        f,
+        rows[0],
+        "Name",
+        &editor.draft.name,
+        editor.focus == EngineEditorFocus::Name,
+    );
+    render_editor_field(
+        f,
+        rows[1],
+        "Command",
+        &editor.draft.command,
+        editor.focus == EngineEditorFocus::Command,
+    );
+    render_editor_field(
+        f,
+        rows[2],
+        "Args",
+        &editor.draft.args,
+        editor.focus == EngineEditorFocus::Args,
+    );
+
+    let buttons = [
+        (EngineEditorButton::Delete, " Delete "),
+        (EngineEditorButton::Cancel, " Cancel "),
+        (EngineEditorButton::Save, " Save "),
+        (EngineEditorButton::SaveAndUse, " Save and Use "),
+    ];
+    let spans = buttons
+        .iter()
+        .map(|(button, label)| {
+            let selected = editor.focus == EngineEditorFocus::Button(*button);
+            Span::styled(
+                *label,
+                if selected {
+                    Style::default().fg(Q_SEL_FG).bg(Q_SEL_BG)
+                } else {
+                    Style::default().fg(Q_TEXT).bg(Q_BG)
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    f.render_widget(
+        Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_BG)),
+        rows[4],
+    );
+}
+
+fn render_editor_field(f: &mut Frame, area: Rect, label: &str, value: &str, selected: bool) {
+    let style = if selected {
+        Style::default().fg(Q_SEL_FG).bg(Q_SEL_BG)
+    } else {
+        Style::default().fg(Q_TEXT).bg(Q_BG)
+    };
+    let text = format!("{label:<8} {value}");
+    f.render_widget(Paragraph::new(text).style(style), area);
 }

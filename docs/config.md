@@ -1,11 +1,19 @@
-tutte le configurazioni che non riguardano uno specifico database ma il frontend o i motori attivi vanno salvati
+# Configuration
 
-nel file $HOME/.qchess.toml
+User-level configuration that is not tied to a specific database is stored in:
 
-la "D" apre il menu database
-la "G" apre il menu partite
-la "M" apre il menu mosse
+```text
+$HOME/.qchess.toml
+```
 
-la "Q" chiude il programma
+This includes frontend settings and registered chess engines.
 
-la "E" apre il menu motore
+## Keyboard Shortcuts
+
+- `D` opens the Database menu.
+- `G` opens the Games menu.
+- `M` opens the Moves menu.
+- `E` opens the Engine menu.
+- `Q` quits the application.
+
+The top menu bar must show menu names only. Do not show `=[key]` labels.
