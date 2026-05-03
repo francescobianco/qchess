@@ -89,7 +89,9 @@ fn centered_fixed(width: u16, height: u16, parent: Rect) -> Rect {
     }
 }
 
-pub fn draw(f: &mut Frame, app: &App) {
+/// Renders the full TUI and returns the inner Rect of the board panel
+/// (used by the caller to overlay the Kitty PNG image).
+pub fn draw(f: &mut Frame, app: &App, use_kitty: bool) -> ratatui::layout::Rect {
     let full = f.area();
 
     // ── Outer split: menu | main | status ─────────────────────────────────────
@@ -148,7 +150,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     let board_block = qblock(&board_title);
     let board_inner = board_block.inner(board_panel);
     f.render_widget(board_block, board_panel);
-    board_view::render_board(f, board_inner, app);
+    board_view::render_board(f, board_inner, app, use_kitty);
 
     // ── Moves ─────────────────────────────────────────────────────────────────
     let moves_block = qblock("Moves");
@@ -193,4 +195,6 @@ pub fn draw(f: &mut Frame, app: &App) {
 
         game_list::render_game_list(f, popup_inner, app);
     }
+
+    board_inner
 }
