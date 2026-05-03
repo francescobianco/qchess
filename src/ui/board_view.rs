@@ -1,28 +1,18 @@
 //! Board area widget.
 //!
-//! When the Kitty protocol is active, this widget only paints the background
-//! (the PNG is overlaid by the caller after `terminal.draw`).
-//! When Kitty is not available it falls back to the Unicode `BoardWidget`.
+//! The Unicode board is always rendered first. Bitmap backends then overlay
+//! the PNG after `terminal.draw`, so unsupported image protocols still leave a
+//! visible board instead of an empty panel.
 
-use ratatui::{layout::Rect, style::Style, widgets::Paragraph, Frame};
+use ratatui::{layout::Rect, Frame};
 use shakmaty::Chess;
 
 use crate::app::App;
 use crate::renderer::{BoardWidget, RenderOptions as UniRO};
-use crate::ui::Q_BG;
 
-/// Render the board panel.  `use_kitty` = true fills the area with the
-/// background colour so the caller can place the PNG on top; false renders
-/// the Unicode fallback directly.
-pub fn render_board(f: &mut Frame, area: Rect, app: &App, use_kitty: bool) {
-    if use_kitty {
-        // Just paint the background so ratatui doesn't leave stale cells.
-        let blank = Paragraph::new("").style(Style::default().bg(Q_BG));
-        f.render_widget(blank, area);
-        return;
-    }
-
-    // ── Unicode fallback ──────────────────────────────────────────────────────
+/// Render the board panel. `use_bitmap_overlay` is accepted so callers can keep
+/// one code path, but the fallback board is intentionally always visible.
+pub fn render_board(f: &mut Frame, area: Rect, app: &App, _use_bitmap_overlay: bool) {
     let last_move = last_move_for(app);
     match &app.current_game {
         Some(game) => {

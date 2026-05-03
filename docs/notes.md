@@ -10,6 +10,8 @@ Rust TUI chess database browser. Any folder with .pgn files is a valid database.
 
 **Board rendering**: PNG via backend auto Kitty/SIXEL. Kitty viene usato su kitty/WezTerm; SIXEL viene scelto su VTE/GNOME Terminal quando rilevabile, cosi' la scacchiera PNG funziona anche su Ubuntu GNOME. Fallback Unicode automatico con `--unicode`, `--graphics unicode`, o se non viene rilevato un backend bitmap. Si puo' forzare con `--graphics kitty` o `--graphics sixel`.
 
+**Board fallback behavior**: la scacchiera Unicode viene sempre renderizzata sotto al PNG. Se il terminale ignora Kitty/SIXEL o il bitmap fallisce, il pannello non rimane vuoto.
+
 **Fritz assets**: tiles estratti da `fritz_3.png` con origine interna corretta `board_x=16`, `board_y=40`, `sq=40px`. Le coordinate `14,38` includono 2px di bordo e tagliano/spostano le figurine. Gli sprite usano alpha ricostruita confrontando il crop con il tile di sfondo e includendo le aree bianche chiuse dal contorno nero. `BoardStyle` + `PieceSet` traits per temi personalizzabili. Fritz tile inclusi con `include_bytes!` in `assets/fritz/`.
 
 **Theme**: QBasic-inspired — Color::Blue background, black menu bar with yellow F-key labels, cyan borders, cyan selection highlight, dark grey status bar.
