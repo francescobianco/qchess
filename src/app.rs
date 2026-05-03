@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::ListState;
+use shakmaty::Chess;
 
 use crate::{
     db::FolderDatabase,
@@ -11,136 +12,127 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppScreen {
-    GameList,
-    BoardView,
+    Main,       // board left, moves right, engine bottom
+    GamePicker, // floating overlay with game list
 }
 
 pub struct App {
     pub db: FolderDatabase,
     pub screen: AppScreen,
-    pub list_state: ListState,
+    pub picker_state: ListState,
     pub current_game: Option<LoadedGame>,
     pub current_ply: usize,
     pub running: bool,
+    pub engine_lines: Vec<String>, // placeholder for engine output
 }
 
 impl App {
     pub fn new(path: &Path) -> Result<Self> {
         let db = FolderDatabase::load(path)?;
-        let mut list_state = ListState::default();
+        let mut picker_state = ListState::default();
         if !db.is_empty() {
-            list_state.select(Some(0));
+            picker_state.select(Some(0));
         }
         Ok(App {
             db,
-            screen: AppScreen::GameList,
-            list_state,
+            screen: AppScreen::Main,
+            picker_state,
             current_game: None,
             current_ply: 0,
             running: true,
+            engine_lines: vec!["No engine loaded. [Future: UCI integration]".into()],
         })
     }
 
+    // The position to display on the board right now.
+    pub fn current_position(&self) -> Option<&Chess> {
+        self.current_game.as_ref().map(|g| &g.positions[self.current_ply])
+    }
+
     pub fn handle_key(&mut self, key: KeyEvent) {
-        // Global quit bindings.
         if key.code == KeyCode::Char('q')
-            || (key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL))
+            || (key.code == KeyCode::Char('c')
+                && key.modifiers.contains(KeyModifiers::CONTROL))
         {
             self.running = false;
             return;
         }
 
         match self.screen {
-            AppScreen::GameList => self.handle_key_game_list(key),
-            AppScreen::BoardView => self.handle_key_board_view(key),
+            AppScreen::Main => self.handle_key_main(key),
+            AppScreen::GamePicker => self.handle_key_picker(key),
         }
     }
 
-    fn handle_key_game_list(&mut self, key: KeyEvent) {
+    fn handle_key_main(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::Down | KeyCode::Char('j') => self.next_game(),
-            KeyCode::Up | KeyCode::Char('k') => self.prev_game(),
-            KeyCode::Enter => self.open_game(),
-            _ => {}
-        }
-    }
-
-    fn handle_key_board_view(&mut self, key: KeyEvent) {
-        match key.code {
+            KeyCode::F(1) | KeyCode::Char('b') => {
+                self.screen = AppScreen::GamePicker;
+            }
             KeyCode::Right | KeyCode::Char('l') => self.next_move(),
-            KeyCode::Left | KeyCode::Char('h') => self.prev_move(),
-            KeyCode::Home => self.go_start(),
-            KeyCode::End => self.go_end(),
-            KeyCode::Esc => {
-                self.screen = AppScreen::GameList;
-                self.current_game = None;
-                self.current_ply = 0;
-            }
+            KeyCode::Left  | KeyCode::Char('h') => self.prev_move(),
+            KeyCode::Home  | KeyCode::Char('s') => self.go_start(),
+            KeyCode::End   | KeyCode::Char('e') => self.go_end(),
             _ => {}
         }
     }
 
-    pub fn next_game(&mut self) {
-        let len = self.db.len();
-        if len == 0 {
-            return;
-        }
-        let selected = self.list_state.selected().unwrap_or(0);
-        let next = (selected + 1).min(len - 1);
-        self.list_state.select(Some(next));
-    }
-
-    pub fn prev_game(&mut self) {
-        let len = self.db.len();
-        if len == 0 {
-            return;
-        }
-        let selected = self.list_state.selected().unwrap_or(0);
-        let prev = selected.saturating_sub(1);
-        self.list_state.select(Some(prev));
-    }
-
-    pub fn open_game(&mut self) {
-        let Some(idx) = self.list_state.selected() else {
-            return;
-        };
-        match self.db.load_game(idx) {
-            Ok(game) => {
-                self.current_ply = 0;
-                self.current_game = Some(game);
-                self.screen = AppScreen::BoardView;
+    fn handle_key_picker(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Esc | KeyCode::F(1) | KeyCode::Char('b') => {
+                self.screen = AppScreen::Main;
             }
-            Err(e) => {
-                // In a TUI app we can't easily print to stderr while running,
-                // but we stay on the list screen so the user can try again.
-                let _ = e;
-            }
+            KeyCode::Down | KeyCode::Char('j') => self.picker_next(),
+            KeyCode::Up   | KeyCode::Char('k') => self.picker_prev(),
+            KeyCode::Enter => self.open_selected_game(),
+            _ => {}
         }
     }
 
-    pub fn next_move(&mut self) {
+    fn picker_next(&mut self) {
+        let len = self.db.len();
+        if len == 0 { return; }
+        let sel = self.picker_state.selected().unwrap_or(0);
+        self.picker_state.select(Some((sel + 1).min(len - 1)));
+    }
+
+    fn picker_prev(&mut self) {
+        let len = self.db.len();
+        if len == 0 { return; }
+        let sel = self.picker_state.selected().unwrap_or(0);
+        self.picker_state.select(Some(sel.saturating_sub(1)));
+    }
+
+    fn open_selected_game(&mut self) {
+        let Some(idx) = self.picker_state.selected() else { return };
+        if let Ok(game) = self.db.load_game(idx) {
+            self.current_game = Some(game);
+            self.current_ply = 0;
+        }
+        self.screen = AppScreen::Main;
+    }
+
+    fn next_move(&mut self) {
         let Some(game) = &self.current_game else { return };
-        // positions has len = moves + 1; last valid ply = positions.len() - 1
-        let max_ply = game.positions.len().saturating_sub(1);
-        if self.current_ply < max_ply {
+        let max = game.positions.len().saturating_sub(1);
+        if self.current_ply < max {
             self.current_ply += 1;
         }
     }
 
-    pub fn prev_move(&mut self) {
+    fn prev_move(&mut self) {
         if self.current_ply > 0 {
             self.current_ply -= 1;
         }
     }
 
-    pub fn go_start(&mut self) {
+    fn go_start(&mut self) {
         self.current_ply = 0;
     }
 
-    pub fn go_end(&mut self) {
+    fn go_end(&mut self) {
         if let Some(game) = &self.current_game {
-            let max_ply = game.positions.len().saturating_sub(1);
-            self.current_ply = max_ply;
+            self.current_ply = game.positions.len().saturating_sub(1);
         }
     }
 }

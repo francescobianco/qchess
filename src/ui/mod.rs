@@ -3,101 +3,194 @@ pub mod game_list;
 pub mod move_list;
 
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph},
     Frame,
 };
 
 use crate::app::{App, AppScreen};
+use crate::renderer::{BOARD_COLS, BOARD_ROWS};
+
+// ── QBasic-inspired palette ───────────────────────────────────────────────────
+pub const Q_BG: Color = Color::Blue;          // classic QBasic dark blue
+pub const Q_TEXT: Color = Color::White;
+pub const Q_MENU_BG: Color = Color::Black;
+pub const Q_MENU_FG: Color = Color::White;
+pub const Q_MENU_KEY: Color = Color::Yellow;  // function key labels
+pub const Q_BORDER: Color = Color::Cyan;
+pub const Q_SEL_BG: Color = Color::Cyan;
+pub const Q_SEL_FG: Color = Color::Black;
+pub const Q_STATUS_BG: Color = Color::DarkGray;
+pub const Q_STATUS_FG: Color = Color::White;
+pub const Q_DIM: Color = Color::DarkGray;
+
+fn menu_bar() -> Paragraph<'static> {
+    let spans = vec![
+        Span::styled(" Browse", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=F1", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Database", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=F2", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Board", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=F3", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Engine", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=F4", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+        Span::styled("  Quit", Style::default().fg(Q_MENU_FG).bg(Q_MENU_BG)),
+        Span::styled("=F6/q", Style::default().fg(Q_MENU_KEY).bg(Q_MENU_BG)),
+    ];
+    Paragraph::new(Line::from(spans))
+        .style(Style::default().bg(Q_MENU_BG))
+}
+
+fn status_bar(app: &App) -> Paragraph<'_> {
+    let game_info = match &app.current_game {
+        Some(g) => format!(
+            " {} vs {}  Ply {}/{}",
+            g.game_ref.meta.white,
+            g.game_ref.meta.black,
+            app.current_ply,
+            g.positions.len().saturating_sub(1),
+        ),
+        None => format!(" {} game(s) in database", app.db.len()),
+    };
+
+    let hint = match app.screen {
+        AppScreen::Main => " │ ←→ moves  Home/End  F1=Browse  q=quit",
+        AppScreen::GamePicker => " │ ↑↓ navigate  Enter=open  Esc=close",
+    };
+
+    let spans = vec![
+        Span::styled(game_info, Style::default().fg(Q_STATUS_FG).bg(Q_STATUS_BG)),
+        Span::styled(hint, Style::default().fg(Q_DIM).bg(Q_STATUS_BG)),
+    ];
+    Paragraph::new(Line::from(spans)).style(Style::default().bg(Q_STATUS_BG))
+}
+
+fn qblock(title: &str) -> Block<'_> {
+    Block::default()
+        .title(format!(" {} ", title))
+        .title_alignment(Alignment::Left)
+        .borders(Borders::ALL)
+        .border_type(BorderType::Plain)
+        .border_style(Style::default().fg(Q_BORDER))
+        .style(Style::default().bg(Q_BG))
+}
+
+/// Returns a centered rect of fixed `width × height` within `parent`.
+fn centered_fixed(width: u16, height: u16, parent: Rect) -> Rect {
+    let x = parent.x + parent.width.saturating_sub(width) / 2;
+    let y = parent.y + parent.height.saturating_sub(height) / 2;
+    Rect {
+        x,
+        y,
+        width: width.min(parent.width),
+        height: height.min(parent.height),
+    }
+}
 
 pub fn draw(f: &mut Frame, app: &App) {
-    // ── Outer layout ──────────────────────────────────────────────────────────
-    // Title bar | main area | status bar
+    let full = f.area();
+
+    // ── Outer split: menu | main | status ─────────────────────────────────────
     let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // title bar
+            Constraint::Length(1), // menu bar
             Constraint::Min(0),    // main content
-            Constraint::Length(1), // status / keybindings
+            Constraint::Length(1), // status bar
         ])
-        .split(f.area());
+        .split(full);
 
-    // ── Title bar ─────────────────────────────────────────────────────────────
-    let title_text = format!(
-        " qchess — {}",
-        app.db.root.display()
-    );
-    let title = Paragraph::new(title_text).style(
-        Style::default()
-            .fg(Color::White)
-            .bg(Color::DarkGray)
-            .add_modifier(Modifier::BOLD),
-    );
-    f.render_widget(title, outer[0]);
+    f.render_widget(menu_bar(), outer[0]);
+    f.render_widget(status_bar(app), outer[2]);
 
-    // ── Main area split into left (game list) and right (board + moves) ───────
-    let main = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(35), // game list
-            Constraint::Percentage(65), // board + moves
-        ])
-        .split(outer[1]);
+    let main = outer[1];
 
-    // ── Game list panel ───────────────────────────────────────────────────────
-    let list_block = Block::default()
-        .title(" Games ")
-        .borders(Borders::ALL);
-    let list_inner = list_block.inner(main[0]);
-    f.render_widget(list_block, main[0]);
-    game_list::render_game_list(f, list_inner, app);
-
-    // ── Right panel: board + move list ────────────────────────────────────────
-    let right = Layout::default()
+    // ── Main area: board (fixed width) | moves; engine below both ─────────────
+    // Vertical: top row (board + moves) | engine panel
+    let engine_height: u16 = 6;
+    let main_rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(12),        // board view
-            Constraint::Percentage(40), // move list
+            Constraint::Min(BOARD_ROWS + 2), // board+moves (block border = +2)
+            Constraint::Length(engine_height),
         ])
-        .split(main[1]);
+        .split(main);
 
-    let board_block = Block::default()
-        .title(" Board ")
-        .borders(Borders::ALL);
-    let board_inner = board_block.inner(right[0]);
-    f.render_widget(board_block, right[0]);
+    let top_row = main_rows[0];
+    let engine_area = main_rows[1];
+
+    // Horizontal split: board | moves
+    let board_total = BOARD_COLS + 2; // +2 for block borders
+    let top_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(board_total),
+            Constraint::Min(20),
+        ])
+        .split(top_row);
+
+    let board_panel = top_cols[0];
+    let moves_panel = top_cols[1];
+
+    // ── Board ─────────────────────────────────────────────────────────────────
+    let board_title = match &app.current_game {
+        Some(g) => format!(
+            "{} vs {}  {}  {}",
+            g.game_ref.meta.white,
+            g.game_ref.meta.black,
+            g.game_ref.meta.event.as_deref().unwrap_or("?"),
+            g.game_ref.meta.result,
+        ),
+        None => "No game — starting position".to_string(),
+    };
+    let board_block = qblock(&board_title);
+    let board_inner = board_block.inner(board_panel);
+    f.render_widget(board_block, board_panel);
     board_view::render_board(f, board_inner, app);
 
-    let moves_block = Block::default()
-        .title(" Moves ")
-        .borders(Borders::ALL);
-    let moves_inner = moves_block.inner(right[1]);
-    f.render_widget(moves_block, right[1]);
+    // ── Moves ─────────────────────────────────────────────────────────────────
+    let moves_block = qblock("Moves");
+    let moves_inner = moves_block.inner(moves_panel);
+    f.render_widget(moves_block, moves_panel);
     move_list::render_move_list(f, moves_inner, app);
 
-    // ── Status bar ────────────────────────────────────────────────────────────
-    let hint = match app.screen {
-        AppScreen::GameList => {
-            " ↑/↓ navigate  Enter open  q quit"
-        }
-        AppScreen::BoardView => {
-            " ←/→ move  Home start  End end  Esc back  q quit"
-        }
-    };
+    // ── Engine panel ──────────────────────────────────────────────────────────
+    let engine_block = qblock("Engine Analysis");
+    let engine_inner = engine_block.inner(engine_area);
+    f.render_widget(engine_block, engine_area);
 
-    let game_count = format!("  {} game(s)", app.db.len());
+    let engine_text: Vec<Line> = app
+        .engine_lines
+        .iter()
+        .map(|l| Line::from(Span::styled(l.as_str(), Style::default().fg(Q_DIM).bg(Q_BG))))
+        .collect();
+    f.render_widget(
+        Paragraph::new(engine_text).style(Style::default().bg(Q_BG)),
+        engine_inner,
+    );
 
-    let status_spans = vec![
-        Span::styled(
-            &game_count,
-            Style::default().fg(Color::Yellow),
-        ),
-        Span::raw("  "),
-        Span::styled(hint, Style::default().fg(Color::DarkGray)),
-    ];
-    let status = Paragraph::new(Line::from(status_spans))
-        .style(Style::default().bg(Color::Reset));
-    f.render_widget(status, outer[2]);
+    // ── Game picker overlay ───────────────────────────────────────────────────
+    if app.screen == AppScreen::GamePicker {
+        let popup_w = full.width.min(70);
+        let popup_h = full.height.min(24);
+        let popup_area = centered_fixed(popup_w, popup_h, full);
+
+        f.render_widget(Clear, popup_area);
+
+        let db_path = app.db.root.display().to_string();
+        let popup_block = Block::default()
+            .title(format!(" Browse — {} ({} games) ", db_path, app.db.len()))
+            .title_alignment(Alignment::Left)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .border_style(Style::default().fg(Q_SEL_BG).add_modifier(Modifier::BOLD))
+            .style(Style::default().bg(Q_BG));
+
+        let popup_inner = popup_block.inner(popup_area);
+        f.render_widget(popup_block, popup_area);
+
+        game_list::render_game_list(f, popup_inner, app);
+    }
 }

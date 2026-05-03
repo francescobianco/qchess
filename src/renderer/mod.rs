@@ -1,109 +1,204 @@
-use shakmaty::{Chess, Color, File, Position, Rank, Role, Square};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::Color,
+    widgets::Widget,
+};
+use shakmaty::{Chess, Color as ChessColor, File, Position, Rank, Role, Square};
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Each square: 4 chars wide × 2 rows tall (~1:1 aspect at typical font metrics)
+pub const SQ_W: u16 = 4;
+pub const SQ_H: u16 = 2;
+pub const LABEL_W: u16 = 2; // rank label column ("8 ")
+pub const BOARD_COLS: u16 = LABEL_W + SQ_W * 8; // 34
+pub const BOARD_ROWS: u16 = SQ_H * 8 + 1;       // 17 (16 for squares + 1 for file labels)
+
+// Fritz-inspired board palette
+const LIGHT_BG: Color    = Color::White;
+const LIGHT_FG: Color    = Color::Black;
+const DARK_BG: Color     = Color::White;      // dark squares: white bg with ░ overlay
+const DARK_HATCH: Color  = Color::DarkGray;   // ░ foreground colour on dark squares
+const DARK_PIECE_FG: Color = Color::Black;
+const HL_BG: Color       = Color::Yellow;     // last-move highlight
+const HL_HATCH: Color    = Color::DarkGray;
+const HL_PIECE_FG: Color = Color::Black;
+const SURROUND: Color    = Color::Blue;       // QBasic blue around the board
 
 pub struct RenderOptions {
     pub flipped: bool,
-    #[allow(dead_code)]
     pub last_move: Option<shakmaty::Move>,
 }
 
 impl Default for RenderOptions {
     fn default() -> Self {
-        RenderOptions {
-            flipped: false,
-            last_move: None,
-        }
+        RenderOptions { flipped: false, last_move: None }
     }
 }
 
-pub enum RenderedBoard {
-    Unicode(Vec<String>),
+pub struct BoardWidget<'a> {
+    pub pos: &'a Chess,
+    pub options: RenderOptions,
 }
 
-// ─── Trait ────────────────────────────────────────────────────────────────────
-
-pub trait BoardRenderer {
-    fn render(&self, pos: &Chess, options: &RenderOptions) -> RenderedBoard;
-}
-
-// ─── Unicode renderer ─────────────────────────────────────────────────────────
-
-pub struct UnicodeRenderer;
-
-fn piece_char(color: Color, role: Role) -> char {
+fn piece_char(color: ChessColor, role: Role) -> char {
     match (color, role) {
-        (Color::White, Role::King) => '♔',
-        (Color::White, Role::Queen) => '♕',
-        (Color::White, Role::Rook) => '♖',
-        (Color::White, Role::Bishop) => '♗',
-        (Color::White, Role::Knight) => '♘',
-        (Color::White, Role::Pawn) => '♙',
-        (Color::Black, Role::King) => '♚',
-        (Color::Black, Role::Queen) => '♛',
-        (Color::Black, Role::Rook) => '♜',
-        (Color::Black, Role::Bishop) => '♝',
-        (Color::Black, Role::Knight) => '♞',
-        (Color::Black, Role::Pawn) => '♟',
+        (ChessColor::White, Role::King)   => '\u{2654}',
+        (ChessColor::White, Role::Queen)  => '\u{2655}',
+        (ChessColor::White, Role::Rook)   => '\u{2656}',
+        (ChessColor::White, Role::Bishop) => '\u{2657}',
+        (ChessColor::White, Role::Knight) => '\u{2658}',
+        (ChessColor::White, Role::Pawn)   => '\u{2659}',
+        (ChessColor::Black, Role::King)   => '\u{265A}',
+        (ChessColor::Black, Role::Queen)  => '\u{265B}',
+        (ChessColor::Black, Role::Rook)   => '\u{265C}',
+        (ChessColor::Black, Role::Bishop) => '\u{265D}',
+        (ChessColor::Black, Role::Knight) => '\u{265E}',
+        (ChessColor::Black, Role::Pawn)   => '\u{265F}',
     }
 }
 
-impl BoardRenderer for UnicodeRenderer {
-    fn render(&self, pos: &Chess, options: &RenderOptions) -> RenderedBoard {
-        let board = pos.board();
-        let mut lines = Vec::with_capacity(10);
+// a1 is a dark square: (file=0) + (rank=0) = 0 → even → dark
+fn sq_is_dark(file_idx: u32, rank_idx: u32) -> bool {
+    (file_idx + rank_idx) % 2 == 0
+}
 
-        // Column header: "  a b c d e f g h"
-        let file_header = if options.flipped {
-            "  h g f e d c b a".to_string()
-        } else {
-            "  a b c d e f g h".to_string()
-        };
-        lines.push(file_header);
+/// Set one terminal cell using the ratatui Buffer index API.
+#[inline]
+fn set_cell(buf: &mut Buffer, x: u16, y: u16, ch: char, fg: Color, bg: Color) {
+    let cell = &mut buf[(x, y)];
+    cell.set_char(ch);
+    cell.set_fg(fg);
+    cell.set_bg(bg);
+}
 
-        // Ranks: draw from rank 8 (top) to rank 1 (bottom), or reversed if flipped.
-        let rank_indices: Vec<u32> = if options.flipped {
-            (0..8u32).collect()
-        } else {
-            (0..8u32).rev().collect()
-        };
+impl Widget for BoardWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let board = self.pos.board();
+        let flipped = self.options.flipped;
 
-        for &rank_idx in &rank_indices {
-            let rank = Rank::new(rank_idx);
-            let rank_label = rank_idx + 1; // "1".."8"
+        let hl_from: Option<Square> = self.options.last_move.as_ref().and_then(|m| m.from());
+        let hl_to:   Option<Square> = self.options.last_move.as_ref().map(|m| m.to());
 
-            let mut row = format!("{} ", rank_label);
+        let rank_order: Vec<u32> = if flipped { (0..8).collect() } else { (0..8).rev().collect() };
+        let file_order: Vec<u32> = if flipped { (0..8).rev().collect() } else { (0..8).collect() };
 
-            let file_indices: Vec<u32> = if options.flipped {
-                (0..8u32).rev().collect()
-            } else {
-                (0..8u32).collect()
-            };
+        for (ri, &rank_idx) in rank_order.iter().enumerate() {
+            let rank  = Rank::new(rank_idx);
+            let sq_top = area.y + ri as u16 * SQ_H;
+            let sq_bot = sq_top + 1;
 
-            for &file_idx in &file_indices {
-                let file = File::new(file_idx);
-                let sq = Square::from_coords(file, rank);
-                let cell = match board.piece_at(sq) {
-                    Some(piece) => piece_char(piece.color, piece.role),
-                    None => '·',
-                };
-                row.push(cell);
-                row.push(' ');
+            // ── Rank label (left 2 cells of each rank) ────────────────────────
+            for dy in 0..SQ_H {
+                let y = sq_top + dy;
+                if y >= area.bottom() { continue; }
+                for lx in 0..LABEL_W {
+                    let x = area.x + lx;
+                    if x >= area.right() { continue; }
+                    let ch = if dy == 1 && lx == 0 {
+                        char::from_digit(rank_idx + 1, 10).unwrap_or(' ')
+                    } else {
+                        ' '
+                    };
+                    set_cell(buf, x, y, ch, Color::White, SURROUND);
+                }
             }
 
-            // Trim trailing space and add rank label on the right.
-            let row = row.trim_end().to_string();
-            lines.push(format!("{} {}", row, rank_label));
+            // ── Squares ────────────────────────────────────────────────────────
+            for (fi, &file_idx) in file_order.iter().enumerate() {
+                let file  = File::new(file_idx);
+                let sq    = Square::from_coords(file, rank);
+                let piece = board.piece_at(sq);
+
+                let is_hl   = Some(sq) == hl_from || Some(sq) == hl_to;
+                let is_dark = sq_is_dark(file_idx, rank_idx);
+
+                let x0 = area.x + LABEL_W + fi as u16 * SQ_W;
+
+                // Top row: hatch fill or blank
+                if sq_top < area.bottom() {
+                    for dx in 0..SQ_W {
+                        let x = x0 + dx;
+                        if x >= area.right() { continue; }
+                        let (ch, fg, bg) = if is_hl {
+                            ('\u{2591}', HL_HATCH, HL_BG)
+                        } else if is_dark {
+                            ('\u{2591}', DARK_HATCH, DARK_BG)
+                        } else {
+                            (' ', LIGHT_FG, LIGHT_BG)
+                        };
+                        set_cell(buf, x, sq_top, ch, fg, bg);
+                    }
+                }
+
+                // Bottom row: piece at dx=1, hatch/blank elsewhere
+                if sq_bot < area.bottom() {
+                    for dx in 0..SQ_W {
+                        let x = x0 + dx;
+                        if x >= area.right() { continue; }
+
+                        if dx == 1 {
+                            match piece {
+                                Some(p) => {
+                                    let (fg, bg) = if is_hl {
+                                        (HL_PIECE_FG, HL_BG)
+                                    } else if is_dark {
+                                        (DARK_PIECE_FG, DARK_BG)
+                                    } else {
+                                        (LIGHT_FG, LIGHT_BG)
+                                    };
+                                    set_cell(buf, x, sq_bot, piece_char(p.color, p.role), fg, bg);
+                                }
+                                None => {
+                                    let (ch, fg, bg) = if is_hl {
+                                        ('\u{2591}', HL_HATCH, HL_BG)
+                                    } else if is_dark {
+                                        ('\u{2591}', DARK_HATCH, DARK_BG)
+                                    } else {
+                                        (' ', LIGHT_FG, LIGHT_BG)
+                                    };
+                                    set_cell(buf, x, sq_bot, ch, fg, bg);
+                                }
+                            }
+                        } else {
+                            let (ch, fg, bg) = if is_hl {
+                                ('\u{2591}', HL_HATCH, HL_BG)
+                            } else if is_dark {
+                                ('\u{2591}', DARK_HATCH, DARK_BG)
+                            } else {
+                                (' ', LIGHT_FG, LIGHT_BG)
+                            };
+                            set_cell(buf, x, sq_bot, ch, fg, bg);
+                        }
+                    }
+                }
+            }
         }
 
-        // Bottom file header.
-        let file_footer = if options.flipped {
-            "  h g f e d c b a".to_string()
-        } else {
-            "  a b c d e f g h".to_string()
-        };
-        lines.push(file_footer);
+        // ── File labels row ────────────────────────────────────────────────────
+        let label_y = area.y + SQ_H * 8;
+        if label_y < area.bottom() {
+            for lx in 0..LABEL_W {
+                let x = area.x + lx;
+                if x < area.right() {
+                    set_cell(buf, x, label_y, ' ', Color::White, SURROUND);
+                }
+            }
 
-        RenderedBoard::Unicode(lines)
+            let file_chars: &[char] = if flipped {
+                &['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a']
+            } else {
+                &['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+            };
+
+            for (fi, &ch) in file_chars.iter().enumerate() {
+                let x0 = area.x + LABEL_W + fi as u16 * SQ_W;
+                for dx in 0..SQ_W {
+                    let x = x0 + dx;
+                    if x >= area.right() { continue; }
+                    let (label_ch, fg) = if dx == 1 { (ch, Color::White) } else { (' ', SURROUND) };
+                    set_cell(buf, x, label_y, label_ch, fg, SURROUND);
+                }
+            }
+        }
     }
 }
